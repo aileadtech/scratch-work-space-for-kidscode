@@ -1,0 +1,31 @@
+@import "../../css/colors.css";
+@import "../../css/units.css";
+@import "../../css/typography.css";
+@import "../../css/z-index.css";
+
+.body {
+    /* position: fixed + inset, not width/height: 100vw/100vh -- vw/vh include
+       scrollbar width in some browsers and can themselves cause the horizontal
+       overflow this component exists to avoid. */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Highest defined layer: this can appear over an already-loaded, in-use editor
+       (see viewport-guard.jsx) and must cover everything, including open menus. */
+    z-index: $z-index-context-menu;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: $ui-white;
+    color: $text-primary;
+    text-align: center;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+.body p {
+    max-width: 28rem;
+}
