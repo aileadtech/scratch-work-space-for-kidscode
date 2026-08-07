@@ -32,10 +32,16 @@ when `kidscodeProjectTitle` identifies the Kidscode workspace mode:
 
 - Scratch's Share control is not rendered; Kidscode continues to use its separate Submit control.
 - Scratch's See Project Page control is not rendered, and its wrapper does not reserve menu space.
-- Scratch's clickable logo is replaced by the approved
-  `components/kidscode-menu-bar/kidscode-logo.svg` asset. The Kidscode wordmark is an image inside
-  a plain `div`, with `alt="Kidscode"`, no link or button ancestor, no click handler, and no
-  interactive cursor or keyboard focus.
+- Scratch's clickable logo is replaced by the approved 100x49
+  `components/kidscode-menu-bar/kidscode-logo.png` asset. The previous SVG branding asset was
+  removed. A compact white backing preserves the PNG's orange and purple contrast against the
+  menu bar. The Kidscode wordmark is an image inside a plain `div`, with `alt="Kidscode"`, no link
+  or button ancestor, no click handler, and no interactive cursor or keyboard focus.
+- The Backpack component is not rendered in Kidscode workspace mode, even when Scratch's
+  `backpackVisible` configuration is enabled. Its internal implementation remains available to
+  Scratch, but it reserves no Kidscode workspace height. The existing flex layout therefore lets
+  the editor tabs and workspace extend naturally to the bottom of the viewport without a fixed
+  height or compensating CSS rule.
 
 The final Kidscode order remains Back to Kidscode, Kidscode branding, File, Edit, Project,
 Settings, project title, Save, workspace status, Submit, and student indicator. Language selection
@@ -44,18 +50,21 @@ Share, See Project Page, editable project title, File/Edit/Settings menus, and l
 
 Focused verification covered the final `menu-bar` unit test plus the project-controls and
 workspace-state component suites: **3/3 suites and 25/25 tests pass**. Focused ESLint reported
-**0 errors** (six pre-existing `arrow-parens` warnings), and the development webpack build
-compiled successfully with zero errors. No translation messages changed, so i18n extraction was
-not required.
+**0 errors** (12 pre-existing `arrow-parens` warnings across `gui.jsx` and `menu-bar.jsx`), and the
+development webpack build compiled successfully with zero errors. No translation messages
+changed, so i18n extraction was not required.
 
 Browser verification passed at 1440x900, 1366x768, 1280x800, and 1024x768: the menu remained a
 single 48px row with no horizontal overflow, wrapping, or empty gaps. The project title,
 Save/status/Submit controls, and student indicator remained visible, and the Kidscode logo fit
-cleanly at every width. Keyboard focus skipped the display-only logo and continued through the
-remaining menu controls in order. At 1000x768, the Phase 1 restriction overlay appeared while the
-editor remained mounted underneath. The normal standalone Scratch route retained its original
-logo and controls. Console review found no new fatal localhost errors; output was limited to known
-upstream React development warnings and a browser-extension error unrelated to the application.
+cleanly at every width. Backpack text and UI element counts were zero, and the editor's main region
+reached the viewport bottom at each size, confirming that no Backpack strip or empty bottom gap
+remained. Keyboard focus skipped the display-only logo and continued through the remaining menu
+controls in order. At 1000x768, the Phase 1 restriction overlay appeared while the editor remained
+mounted underneath, and the edited sprite name was preserved after returning to 1024x768. The
+normal standalone Scratch route retained its original logo and controls. Console review found no
+new fatal localhost errors; output was limited to known upstream React development warnings and a
+browser-extension error unrelated to the application.
 
 The integration point is `MenuBar` (`components/menu-bar/menu-bar.jsx`), extended with three new,
 optional props (`onBackToKidscode`, `kidscodeProjectTitle`, `kidscodeStudentName`) threaded through

@@ -71,7 +71,7 @@ import ninetiesLogo from './nineties_logo.svg';
 import catLogo from './cat_logo.svg';
 import prehistoricLogo from './prehistoric-logo.svg';
 import oldtimeyLogo from './oldtimey-logo.svg';
-import kidscodeLogo from '../kidscode-menu-bar/kidscode-logo.svg';
+import kidscodeLogo from '../kidscode-menu-bar/kidscode-logo.png';
 
 import sharedMessages from '../../lib/shared-messages';
 

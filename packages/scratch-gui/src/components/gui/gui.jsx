@@ -562,7 +562,7 @@ const GUIComponent = props => {
                                         /> : null}
                                 </TabPanel>
                             </Tabs>
-                            {backpackVisible && backpackConfigured ? (
+                            {!kidscodeProjectTitle && backpackVisible && backpackConfigured ? (
                                 <Backpack
                                     host={backpackHost}
                                     ariaRole="region"
