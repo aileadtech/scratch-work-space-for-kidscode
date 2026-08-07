@@ -7,10 +7,24 @@ import GUI from '../containers/gui.jsx';
 import HashParserHOC from '../lib/hash-parser-hoc.jsx';
 import log from '../lib/log.js';
 import {PLATFORM} from '../lib/platform.js';
+import {KidscodeWorkspaceStates} from '../lib/kidscode-workspace-state';
 
 const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
 };
+
+// Phase 2 placeholders -- later phases replace these values and callback seams with
+// secure-launch data, persistence, submission, and navigation handlers.
+const KIDSCODE_PLACEHOLDER_PROJECT_TITLE = 'Untitled Project';
+const KIDSCODE_PLACEHOLDER_STUDENT_NAME = 'Student';
+const onBackToKidscode = () => {};
+const onDeleteDraft = () => {};
+const onDuplicateProject = () => {};
+const onRenameProject = () => {};
+const onReturnToLesson = () => {};
+const onReturnToMyScratchProjects = () => {};
+const onSaveProject = () => {};
+const onSubmitProject = () => {};
 
 const handleTelemetryModalCancel = () => {
     log('User canceled telemetry modal');
@@ -44,6 +58,12 @@ export default appTarget => {
     const backpackHostMatches = window.location.href.match(/[?&]backpack_host=([^&]*)&?/);
     const backpackHost = backpackHostMatches ? backpackHostMatches[1] : null;
 
+    // Allows each controlled Phase 2 workspace state to be inspected locally
+    // without simulating persistence, authentication, or network behaviour.
+    const requestedWorkspaceState = new URLSearchParams(window.location.search).get('workspaceState');
+    const kidscodeWorkspaceState = KidscodeWorkspaceStates.includes(requestedWorkspaceState) ?
+        requestedWorkspaceState : null;
+
     const scratchDesktopMatches = window.location.href.match(/[?&]isScratchDesktop=([^&]+)/);
     let simulateScratchDesktop;
     if (scratchDesktopMatches) {
@@ -66,23 +86,49 @@ export default appTarget => {
 
     root.render(
         // important: this is checking whether `simulateScratchDesktop` is truthy, not just defined!
-        simulateScratchDesktop ?
+        simulateScratchDesktop ? (
             <WrappedGui
-                canEditTitle
+                canEditTitle={false}
+                kidscodeProjectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
+                kidscodeStudentName={KIDSCODE_PLACEHOLDER_STUDENT_NAME}
+                kidscodeWorkspaceState={kidscodeWorkspaceState}
+                projectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
                 platform={PLATFORM.DESKTOP}
                 showTelemetryModal
                 canSave={false}
+                onBackToKidscode={onBackToKidscode}
+                onDeleteDraft={onDeleteDraft}
+                onDuplicateProject={onDuplicateProject}
+                onRenameProject={onRenameProject}
+                onReturnToLesson={onReturnToLesson}
+                onReturnToMyScratchProjects={onReturnToMyScratchProjects}
+                onSaveProject={onSaveProject}
+                onSubmitProject={onSubmitProject}
                 onTelemetryModalCancel={handleTelemetryModalCancel}
                 onTelemetryModalOptIn={handleTelemetryModalOptIn}
                 onTelemetryModalOptOut={handleTelemetryModalOptOut}
-            /> :
+            />
+        ) : (
             <WrappedGui
-                canEditTitle
+                canEditTitle={false}
+                kidscodeProjectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
+                kidscodeStudentName={KIDSCODE_PLACEHOLDER_STUDENT_NAME}
+                kidscodeWorkspaceState={kidscodeWorkspaceState}
+                projectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
                 backpackVisible
                 showComingSoon
                 backpackHost={backpackHost}
                 canSave={false}
+                onBackToKidscode={onBackToKidscode}
                 onClickLogo={onClickLogo}
+                onDeleteDraft={onDeleteDraft}
+                onDuplicateProject={onDuplicateProject}
+                onRenameProject={onRenameProject}
+                onReturnToLesson={onReturnToLesson}
+                onReturnToMyScratchProjects={onReturnToMyScratchProjects}
+                onSaveProject={onSaveProject}
+                onSubmitProject={onSubmitProject}
             />
+        )
     );
 };

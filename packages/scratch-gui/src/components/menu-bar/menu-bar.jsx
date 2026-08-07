@@ -51,6 +51,7 @@ import {
     closeLoginMenu,
     loginMenuOpen
 } from '../../reducers/menus';
+import {setProjectTitle} from '../../reducers/project-title';
 
 import collectMetadata from '../../lib/collect-metadata';
 import {PLATFORM} from '../../lib/platform';
@@ -70,11 +71,24 @@ import ninetiesLogo from './nineties_logo.svg';
 import catLogo from './cat_logo.svg';
 import prehistoricLogo from './prehistoric-logo.svg';
 import oldtimeyLogo from './oldtimey-logo.svg';
+import kidscodeLogo from '../kidscode-menu-bar/kidscode-logo.png';
 
 import sharedMessages from '../../lib/shared-messages';
 
 import {AccountMenuOptionsPropTypes} from '../../lib/account-menu-options';
 import AccountMenu from './account-menu.jsx';
+
+import BackToKidscodeButton from '../kidscode-menu-bar/back-to-kidscode-button.jsx';
+import {
+    KidscodeProjectActionButtons,
+    KidscodeProjectMenu
+} from '../kidscode-menu-bar/kidscode-project-controls.jsx';
+import KidscodeProjectTitle from '../kidscode-menu-bar/kidscode-project-title.jsx';
+import KidscodeStudentIndicator from '../kidscode-menu-bar/kidscode-student-indicator.jsx';
+import {
+    KidscodeWorkspaceStates,
+    resolveKidscodeWorkspaceState
+} from '../../lib/kidscode-workspace-state';
 
 const ariaMessages = defineMessages({
     tutorials: {
@@ -161,6 +175,7 @@ class MenuBar extends React.Component {
             'handleClickNew',
             'handleClickSeeCommunity',
             'handleClickShare',
+            'handleRenameProject',
             'handleSetMode',
             'handleKeyPress',
             'handleRestoreOption',
@@ -225,21 +240,27 @@ class MenuBar extends React.Component {
                 document.documentElement.style.height = '';
             }
 
-            // Change logo for modes
-            if (mode === '1990') {
-                document.getElementById('logo_img').src = ninetiesLogo;
-            } else if (mode === '2020') {
-                document.getElementById('logo_img').src = catLogo;
-            } else if (mode === '1920') {
-                document.getElementById('logo_img').src = oldtimeyLogo;
-            } else if (mode === '220022BC') {
-                document.getElementById('logo_img').src = prehistoricLogo;
-            } else {
-                document.getElementById('logo_img').src = getScratchLogo(this.props.platform);
+            // Change the Scratch logo for modes without replacing Kidscode branding.
+            if (!this.props.kidscodeProjectTitle) {
+                if (mode === '1990') {
+                    document.getElementById('logo_img').src = ninetiesLogo;
+                } else if (mode === '2020') {
+                    document.getElementById('logo_img').src = catLogo;
+                } else if (mode === '1920') {
+                    document.getElementById('logo_img').src = oldtimeyLogo;
+                } else if (mode === '220022BC') {
+                    document.getElementById('logo_img').src = prehistoricLogo;
+                } else {
+                    document.getElementById('logo_img').src = getScratchLogo(this.props.platform);
+                }
             }
 
             this.props.onSetTimeTravelMode(mode);
         };
+    }
+    handleRenameProject (title) {
+        this.props.onSetProjectTitle(title);
+        this.props.onRenameProject(title);
     }
     handleRestoreOption (restoreFun) {
         return () => {
@@ -249,7 +270,11 @@ class MenuBar extends React.Component {
     handleKeyPress (event) {
         const modifier = bowser.mac ? event.metaKey : event.ctrlKey;
         if (modifier && event.key === 's') {
-            this.props.onClickSave();
+            if (this.props.kidscodeProjectTitle) {
+                this.props.onSaveProject();
+            } else {
+                this.props.onClickSave();
+            }
             event.preventDefault();
         }
     }
@@ -319,7 +344,8 @@ class MenuBar extends React.Component {
             <Box
                 className={classNames(
                     this.props.className,
-                    styles.menuBar
+                    styles.menuBar,
+                    {[styles.kidscode]: this.props.kidscodeProjectTitle}
                 )}
                 aria-label={this.props.ariaLabel}
                 role={this.props.ariaRole}
@@ -327,22 +353,37 @@ class MenuBar extends React.Component {
             >
                 <div className={styles.mainMenu}>
                     <div className={styles.fileGroup}>
-                        <button
-                            aria-label={this.props.intl.formatMessage(ariaMessages.home)}
-                            className={classNames(styles.menuBarItem)}
-                            onClick={this.props.onClickLogo}
-                        >
-                            <img
-                                id="logo_img"
-                                alt="Scratch"
-                                className={classNames(styles.scratchLogo, {
-                                    [styles.clickable]: typeof this.props.onClickLogo !== 'undefined'
-                                })}
-                                draggable={false}
-                                src={getScratchLogo(this.props.platform)}
-                            />
-                        </button>
-                        {(this.props.canChangeColorMode || this.props.canChangeLanguage || this.props.canChangeTheme) &&
+                        {this.props.onBackToKidscode && (
+                            <BackToKidscodeButton onBackToKidscode={this.props.onBackToKidscode} />
+                        )}
+                        {this.props.kidscodeProjectTitle ? (
+                            <div className={styles.kidscodeBranding}>
+                                <img
+                                    alt="Kidscode"
+                                    className={styles.kidscodeLogo}
+                                    draggable={false}
+                                    src={kidscodeLogo}
+                                />
+                            </div>
+                        ) : (
+                            <button
+                                aria-label={this.props.intl.formatMessage(ariaMessages.home)}
+                                className={classNames(styles.menuBarItem)}
+                                onClick={this.props.onClickLogo}
+                            >
+                                <img
+                                    id="logo_img"
+                                    alt="Scratch"
+                                    className={classNames(styles.scratchLogo, {
+                                        [styles.clickable]: typeof this.props.onClickLogo !== 'undefined'
+                                    })}
+                                    draggable={false}
+                                    src={getScratchLogo(this.props.platform)}
+                                />
+                            </button>
+                        )}
+                        {!this.props.kidscodeProjectTitle &&
+                        (this.props.canChangeColorMode || this.props.canChangeLanguage || this.props.canChangeTheme) &&
                         (<SettingsMenu
                             canChangeLanguage={this.props.canChangeLanguage}
                             canChangeColorMode={this.props.canChangeColorMode}
@@ -371,6 +412,29 @@ class MenuBar extends React.Component {
                             restoreOptionMessage={this.restoreOptionMessage}
                             depth={1}
                         />
+                        {this.props.kidscodeProjectTitle && (
+                            <KidscodeProjectMenu
+                                getSaveToComputerHandler={this.getSaveToComputerHandler}
+                                isRtl={this.props.isRtl}
+                                projectTitle={this.props.projectTitle}
+                                onDeleteDraft={this.props.onDeleteDraft}
+                                onDuplicateProject={this.props.onDuplicateProject}
+                                onRenameProject={this.handleRenameProject}
+                                onReturnToLesson={this.props.onReturnToLesson}
+                                onReturnToMyScratchProjects={this.props.onReturnToMyScratchProjects}
+                            />
+                        )}
+                        {this.props.kidscodeProjectTitle &&
+                        (this.props.canChangeColorMode || this.props.canChangeLanguage || this.props.canChangeTheme) &&
+                        (<SettingsMenu
+                            canChangeLanguage={this.props.canChangeLanguage}
+                            canChangeColorMode={this.props.canChangeColorMode}
+                            canChangeTheme={this.props.canChangeTheme}
+                            hasActiveMembership={this.props.hasActiveMembership}
+                            hideLabel
+                            isRtl={this.props.isRtl}
+                            depth={1}
+                        />)}
                         {this.props.isTotallyNormal && (<ModeMenu
                             onSetMode={this.handleSetMode}
                             modeNow={this.props.modeNow}
@@ -379,7 +443,11 @@ class MenuBar extends React.Component {
                             depth={1}
                         />)}
                     </div>
-                    {this.props.canEditTitle ? (
+                    {this.props.kidscodeProjectTitle ? (
+                        <div className={classNames(styles.menuBarItem, styles.growable)}>
+                            <KidscodeProjectTitle title={this.props.projectTitle} />
+                        </div>
+                    ) : this.props.canEditTitle ? (
                         <div className={classNames(styles.menuBarItem, styles.growable)}>
                             <MenuBarItemTooltip
                                 enable
@@ -400,61 +468,75 @@ class MenuBar extends React.Component {
                             avatarBadge={this.props.authorAvatarBadge}
                         />
                     ) : null)}
-                    <div className={classNames(styles.menuBarItem)}>
-                        {this.props.canShare ? (
-                            (this.props.isShowingProject || this.props.isUpdating) && (
-                                <ProjectWatcher
-                                    onDoneUpdating={this.props.onSeeCommunity}
-                                    isShared={this.props.isShared}
-                                >
-                                    {
-                                        waitForUpdate => (
-                                            <ShareButton
-                                                className={styles.menuBarButton}
-                                                isShared={this.props.isShared}
-                                                /* eslint-disable react/jsx-no-bind */
-                                                onClick={() => {
-                                                    this.handleClickShare(waitForUpdate);
-                                                }}
-                                                /* eslint-enable react/jsx-no-bind */
-                                            />
-                                        )
-                                    }
-                                </ProjectWatcher>
-                            )
-                        ) : (
-                            this.props.showComingSoon ? (
-                                <MenuBarItemTooltip id="share-button">
-                                    <ShareButton className={styles.menuBarButton} />
+                    {this.props.kidscodeProjectTitle && (
+                        <KidscodeProjectActionButtons
+                            onSaveProject={this.props.onSaveProject}
+                            onSubmitProject={this.props.onSubmitProject}
+                            onWorkspaceStateAction={this.props.onWorkspaceStateAction}
+                            workspaceState={this.props.kidscodeWorkspaceState}
+                        />
+                    )}
+                    {(!this.props.kidscodeProjectTitle || this.props.canRemix) && (
+                        <div className={classNames(styles.menuBarItem)}>
+                            {!this.props.kidscodeProjectTitle && (
+                                this.props.canShare ? (
+                                    (this.props.isShowingProject || this.props.isUpdating) && (
+                                        <ProjectWatcher
+                                            onDoneUpdating={this.props.onSeeCommunity}
+                                            isShared={this.props.isShared}
+                                        >
+                                            {
+                                                waitForUpdate => (
+                                                    <ShareButton
+                                                        className={styles.menuBarButton}
+                                                        isShared={this.props.isShared}
+                                                        /* eslint-disable react/jsx-no-bind */
+                                                        onClick={() => {
+                                                            this.handleClickShare(waitForUpdate);
+                                                        }}
+                                                        /* eslint-enable react/jsx-no-bind */
+                                                    />
+                                                )
+                                            }
+                                        </ProjectWatcher>
+                                    )
+                                ) : (
+                                    this.props.showComingSoon ? (
+                                        <MenuBarItemTooltip id="share-button">
+                                            <ShareButton className={styles.menuBarButton} />
+                                        </MenuBarItemTooltip>
+                                    ) : []
+                                )
+                            )}
+                            {this.props.canRemix ? remixButton : []}
+                        </div>
+                    )}
+                    {!this.props.kidscodeProjectTitle && (
+                        <div className={classNames(styles.menuBarItem, styles.communityButtonWrapper)}>
+                            {this.props.enableCommunity ? (
+                                (this.props.isShowingProject || this.props.isUpdating) && (
+                                    <ProjectWatcher onDoneUpdating={this.props.onSeeCommunity}>
+                                        {
+                                            waitForUpdate => (
+                                                <CommunityButton
+                                                    className={styles.menuBarButton}
+                                                    /* eslint-disable react/jsx-no-bind */
+                                                    onClick={() => {
+                                                        this.handleClickSeeCommunity(waitForUpdate);
+                                                    }}
+                                                    /* eslint-enable react/jsx-no-bind */
+                                                />
+                                            )
+                                        }
+                                    </ProjectWatcher>
+                                )
+                            ) : (this.props.showComingSoon ? (
+                                <MenuBarItemTooltip id="community-button">
+                                    <CommunityButton className={styles.menuBarButton} />
                                 </MenuBarItemTooltip>
-                            ) : []
-                        )}
-                        {this.props.canRemix ? remixButton : []}
-                    </div>
-                    <div className={classNames(styles.menuBarItem, styles.communityButtonWrapper)}>
-                        {this.props.enableCommunity ? (
-                            (this.props.isShowingProject || this.props.isUpdating) && (
-                                <ProjectWatcher onDoneUpdating={this.props.onSeeCommunity}>
-                                    {
-                                        waitForUpdate => (
-                                            <CommunityButton
-                                                className={styles.menuBarButton}
-                                                /* eslint-disable react/jsx-no-bind */
-                                                onClick={() => {
-                                                    this.handleClickSeeCommunity(waitForUpdate);
-                                                }}
-                                                /* eslint-enable react/jsx-no-bind */
-                                            />
-                                        )
-                                    }
-                                </ProjectWatcher>
-                            )
-                        ) : (this.props.showComingSoon ? (
-                            <MenuBarItemTooltip id="community-button">
-                                <CommunityButton className={styles.menuBarButton} />
-                            </MenuBarItemTooltip>
-                        ) : [])}
-                    </div>
+                            ) : [])}
+                        </div>
+                    )}
                     <Divider className={classNames(styles.divider)} />
                     <div className={styles.fileGroup}>
                         <button
@@ -577,6 +659,11 @@ class MenuBar extends React.Component {
                                 ) : null}
                             </React.Fragment>
                         )
+                    ) : this.props.kidscodeStudentName ? (
+                        // Kidscode has no Scratch login session of its own -- the student
+                        // indicator takes over the slot Scratch's own account UI would
+                        // otherwise occupy here.
+                        <KidscodeStudentIndicator studentName={this.props.kidscodeStudentName} />
                     ) : (
                         // ******** no login session is available, so don't show login stuff
                         <React.Fragment>
@@ -668,6 +755,9 @@ MenuBar.propTypes = {
     isShowingProject: PropTypes.bool,
     isTotallyNormal: PropTypes.bool,
     isUpdating: PropTypes.bool,
+    kidscodeProjectTitle: PropTypes.string,
+    kidscodeStudentName: PropTypes.string,
+    kidscodeWorkspaceState: PropTypes.oneOf(KidscodeWorkspaceStates),
     locale: PropTypes.string.isRequired,
     loginMenuOpen: PropTypes.bool,
     logo: PropTypes.string,
@@ -676,6 +766,7 @@ MenuBar.propTypes = {
     mode2020: PropTypes.bool,
     mode220022BC: PropTypes.bool,
     modeNow: PropTypes.bool,
+    onBackToKidscode: PropTypes.func,
     onClickAbout: PropTypes.oneOfType([
         PropTypes.func, // button mode: call this callback when the About button is clicked
         PropTypes.arrayOf( // menu mode: list of items in the About menu
@@ -692,17 +783,26 @@ MenuBar.propTypes = {
     onClickRemix: PropTypes.func,
     onClickSave: PropTypes.func,
     onClickSaveAsCopy: PropTypes.func,
+    onDeleteDraft: PropTypes.func,
+    onDuplicateProject: PropTypes.func,
     onLogOut: PropTypes.func,
     onOpenRegistration: PropTypes.func,
     onOpenTipLibrary: PropTypes.func,
     onOpenDebugModal: PropTypes.func,
     onProjectTelemetryEvent: PropTypes.func,
     onRequestCloseLogin: PropTypes.func,
+    onRenameProject: PropTypes.func,
+    onReturnToLesson: PropTypes.func,
+    onReturnToMyScratchProjects: PropTypes.func,
+    onSaveProject: PropTypes.func,
     onSeeCommunity: PropTypes.func,
+    onSetProjectTitle: PropTypes.func,
     onSetTimeTravelMode: PropTypes.func,
     onShare: PropTypes.func,
     onStartSelectingFileUpload: PropTypes.func,
+    onSubmitProject: PropTypes.func,
     onToggleLoginOpen: PropTypes.func,
+    onWorkspaceStateAction: PropTypes.func,
     platform: PropTypes.oneOf(Object.keys(PLATFORM)),
     projectTitle: PropTypes.string,
     renderLogin: PropTypes.func,
@@ -719,7 +819,14 @@ MenuBar.propTypes = {
 
 MenuBar.defaultProps = {
     logo: scratchLogo,
-    onShare: () => {}
+    onDeleteDraft: () => {},
+    onDuplicateProject: () => {},
+    onRenameProject: () => {},
+    onReturnToLesson: () => {},
+    onReturnToMyScratchProjects: () => {},
+    onSaveProject: () => {},
+    onShare: () => {},
+    onSubmitProject: () => {}
 };
 
 const mapStateToProps = (state, ownProps) => {
@@ -733,6 +840,11 @@ const mapStateToProps = (state, ownProps) => {
         isRtl: state.locales.isRtl,
         isUpdating: getIsUpdating(loadingState),
         isShowingProject: getIsShowingProject(loadingState),
+        kidscodeWorkspaceState: resolveKidscodeWorkspaceState({
+            workspaceState: ownProps.kidscodeWorkspaceState,
+            projectChanged: state.scratchGui.projectChanged,
+            isUpdating: getIsUpdating(loadingState)
+        }),
         locale: state.locales.locale,
         loginMenuOpen: loginMenuOpen(state),
         projectTitle: state.scratchGui.projectTitle,
@@ -779,6 +891,7 @@ const mapDispatchToProps = (dispatch, ownProps) => ({
     onClickRemix: () => dispatch(remixProject()),
     onRequestCloseLogin: () => dispatch(closeLoginMenu()),
     onSeeCommunity: ownProps.onSeeCommunity ?? (() => dispatch(setPlayer(true))),
+    onSetProjectTitle: title => dispatch(setProjectTitle(title)),
     onSetTimeTravelMode: mode => dispatch(setTimeTravel(mode))
 });
 

@@ -31,6 +31,7 @@ import Alerts from '../../containers/alerts.jsx';
 import DragLayer from '../../containers/drag-layer.jsx';
 import ConnectionModal from '../../containers/connection-modal.jsx';
 import TelemetryModal from '../telemetry-modal/telemetry-modal.jsx';
+import {KidscodeWorkspaceBlockingState} from '../kidscode-menu-bar/kidscode-workspace-state.jsx';
 
 import layout, {STAGE_SIZE_MODES} from '../../lib/layout-constants';
 import {resolveStageSize} from '../../lib/screen-utils';
@@ -46,6 +47,10 @@ import DebugModal from '../debug-modal/debug-modal.jsx';
 import {setPlatform} from '../../reducers/platform.js';
 import {setTheme} from '../../reducers/settings.js';
 import {PLATFORM} from '../../lib/platform.js';
+import {
+    KidscodeWorkspaceState,
+    KidscodeWorkspaceStates
+} from '../../lib/kidscode-workspace-state';
 import {MenuRefProvider} from '../../contexts/menu-ref-context.jsx';
 import {ModalFocusProvider} from '../../contexts/modal-focus-context.jsx';
 
@@ -157,9 +162,19 @@ const GUIComponent = props => {
         isShared,
         isTelemetryEnabled,
         isTotallyNormal,
+        kidscodeProjectTitle,
+        kidscodeStudentName,
+        kidscodeWorkspaceState,
         loading,
         logo,
         manuallySaveThumbnails,
+        onBackToKidscode,
+        onDeleteDraft,
+        onDuplicateProject,
+        onRenameProject,
+        onReturnToLesson,
+        onReturnToMyScratchProjects,
+        onSaveProject,
         onSetManualThumbnail,
         onSetManualThumbnailButtonClick,
         menuBarHidden,
@@ -186,6 +201,8 @@ const GUIComponent = props => {
         onShare,
         onShowPrivacyPolicy,
         onStartSelectingFileUpload,
+        onSubmitProject,
+        onWorkspaceStateAction,
         onTelemetryModalCancel,
         onTelemetryModalOptIn,
         onTelemetryModalOptOut,
@@ -246,6 +263,9 @@ const GUIComponent = props => {
         onRequestCloseDebugModal();
     }, [onDebugModalClose, onRequestCloseDebugModal]);
 
+    const kidscodeWorkspaceLoading = Boolean(kidscodeProjectTitle) &&
+        kidscodeWorkspaceState === KidscodeWorkspaceState.LOADING_PROJECT;
+
     if (isRendererSupported === null) {
         isRendererSupported = Renderer.isSupported();
     }
@@ -287,8 +307,15 @@ const GUIComponent = props => {
                             onShowPrivacyPolicy={onShowPrivacyPolicy}
                         />
                     ) : null}
-                    {loading ? (
+                    {loading && !kidscodeWorkspaceLoading ? (
                         <Loader />
+                    ) : null}
+                    {kidscodeProjectTitle ? (
+                        <KidscodeWorkspaceBlockingState
+                            isRtl={isRtl}
+                            workspaceState={kidscodeWorkspaceState}
+                            onAction={onWorkspaceStateAction}
+                        />
                     ) : null}
                     {isCreating ? (
                         <Loader messageId="gui.loader.creating" />
@@ -355,19 +382,31 @@ const GUIComponent = props => {
                             hasActiveMembership={hasActiveMembership}
                             isShared={isShared}
                             isTotallyNormal={isTotallyNormal}
+                            kidscodeProjectTitle={kidscodeProjectTitle}
+                            kidscodeStudentName={kidscodeStudentName}
+                            kidscodeWorkspaceState={kidscodeWorkspaceState}
                             logo={logo}
                             renderLogin={renderLogin}
                             showComingSoon={showComingSoon}
+                            onBackToKidscode={onBackToKidscode}
                             onClickAbout={onClickAbout}
                             onClickLogo={onClickLogo}
+                            onDeleteDraft={onDeleteDraft}
+                            onDuplicateProject={onDuplicateProject}
                             onLogOut={onLogOut}
                             onClickLogin={onClickLogin}
                             onOpenRegistration={onOpenRegistration}
                             onProjectTelemetryEvent={onProjectTelemetryEvent}
+                            onRenameProject={onRenameProject}
+                            onReturnToLesson={onReturnToLesson}
+                            onReturnToMyScratchProjects={onReturnToMyScratchProjects}
+                            onSaveProject={onSaveProject}
                             onSeeCommunity={onSeeCommunity}
                             onShare={onShare}
                             onStartSelectingFileUpload={onStartSelectingFileUpload}
+                            onSubmitProject={onSubmitProject}
                             onToggleLoginOpen={onToggleLoginOpen}
+                            onWorkspaceStateAction={onWorkspaceStateAction}
                             userOwnsProject={userOwnsProject}
                             username={username}
                             avatarBadge={avatarBadge}
@@ -523,7 +562,7 @@ const GUIComponent = props => {
                                         /> : null}
                                 </TabPanel>
                             </Tabs>
-                            {backpackVisible && backpackConfigured ? (
+                            {!kidscodeProjectTitle && backpackVisible && backpackConfigured ? (
                                 <Backpack
                                     host={backpackHost}
                                     ariaRole="region"
@@ -619,9 +658,19 @@ GUIComponent.propTypes = {
     isRtl: PropTypes.bool,
     isShared: PropTypes.bool,
     isTotallyNormal: PropTypes.bool,
+    kidscodeProjectTitle: PropTypes.string,
+    kidscodeStudentName: PropTypes.string,
+    kidscodeWorkspaceState: PropTypes.oneOf(KidscodeWorkspaceStates),
     loading: PropTypes.bool,
     logo: PropTypes.string,
     manuallySaveThumbnails: PropTypes.bool,
+    onBackToKidscode: PropTypes.func,
+    onDeleteDraft: PropTypes.func,
+    onDuplicateProject: PropTypes.func,
+    onRenameProject: PropTypes.func,
+    onReturnToLesson: PropTypes.func,
+    onReturnToMyScratchProjects: PropTypes.func,
+    onSaveProject: PropTypes.func,
     onSetManualThumbnail: PropTypes.func,
     onSetManualThumbnailButtonClick: PropTypes.func,
     menuBarHidden: PropTypes.bool,
@@ -643,6 +692,8 @@ GUIComponent.propTypes = {
     onShare: PropTypes.func,
     onShowPrivacyPolicy: PropTypes.func,
     onStartSelectingFileUpload: PropTypes.func,
+    onSubmitProject: PropTypes.func,
+    onWorkspaceStateAction: PropTypes.func,
     onTabSelect: PropTypes.func,
     onTelemetryModalCancel: PropTypes.func,
     onTelemetryModalOptIn: PropTypes.func,

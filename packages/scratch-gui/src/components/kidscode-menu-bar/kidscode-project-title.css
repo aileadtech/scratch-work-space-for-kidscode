@@ -1,0 +1,10 @@
+@import "../../css/colors.css";
+
+.project-title {
+    overflow: hidden;
+    width: 100%;
+    color: $ui-white;
+    font-weight: bold;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

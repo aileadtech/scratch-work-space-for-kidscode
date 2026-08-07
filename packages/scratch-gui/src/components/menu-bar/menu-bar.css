@@ -39,6 +39,10 @@
     align-items: center;
     flex-grow: 1;
 }
+
+.menu-bar.kidscode .main-menu {
+    min-width: 0;
+}
 .inactive {
     opacity: 0;
 }
@@ -49,6 +53,25 @@
 
 .scratch-logo.clickable {
     cursor: pointer;
+}
+
+.kidscode-branding {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    height: $menu-bar-height;
+    margin: 0 .25rem;
+    padding: 0 0.5rem;
+    user-select: none;
+}
+
+.kidscode-logo {
+    display: block;
+    width: auto;
+    height: 1.6rem;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    background-color: $ui-white;
 }
 
 .menu-bar-item {
@@ -81,6 +104,7 @@
 
 .menu-bar-item.growable {
     max-width: $menu-bar-item-max-width;
+    min-width: 0;
     flex: 1;
 }
 
@@ -234,5 +258,22 @@
 
     .help-icon {
         margin-right: 0;
+    }
+}
+
+@media only screen and (max-width: 1440px) {
+    .menu-bar.kidscode .tutorials-label,
+    .menu-bar.kidscode .debug-label {
+        display: none;
+    }
+
+    .menu-bar.kidscode .help-icon {
+        margin-right: 0;
+    }
+}
+
+@media only screen and (max-width: 1025px) {
+    .menu-bar.kidscode .collapsible-label {
+        display: none;
     }
 }

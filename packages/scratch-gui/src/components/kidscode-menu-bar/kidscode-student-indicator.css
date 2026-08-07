@@ -1,0 +1,60 @@
+@import "../../css/colors.css";
+@import "../../css/units.css";
+
+.student-indicator {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    height: $menu-bar-height;
+    padding: 0 0.75rem;
+    gap: 0.5rem;
+}
+
+.avatar {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    background-color: $motion-primary;
+    color: $ui-white;
+    font-size: $menu-bar-standard-font-size;
+    font-weight: bold;
+}
+
+.student-name {
+    color: $ui-white;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.visually-hidden {
+    position: absolute;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Collapses to avatar-only at common laptop widths. Visually hidden via the same
+   technique as .visually-hidden, not `display: none` -- the name must stay in the
+   accessibility tree alongside the "(student account)" label below. */
+@media only screen and (max-width: 1366px) {
+    .student-name {
+        position: absolute;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        white-space: nowrap;
+        border: 0;
+    }
+}
