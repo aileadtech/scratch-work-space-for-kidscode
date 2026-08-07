@@ -75,6 +75,21 @@ describe('MenuBar Component', () => {
         expect(queryByText('Initial Kidscode title')).toBeFalsy();
     });
 
+    test('Kidscode branding replaces Scratch navigation and community actions', () => {
+        const {getByAltText, queryByAltText, queryByRole, queryByText} = renderWithIntl(getComponent({
+            kidscodeProjectTitle: 'Kidscode title',
+            showComingSoon: true
+        }));
+
+        const kidscodeLogo = getByAltText('Kidscode');
+        expect(kidscodeLogo.closest('a')).toBeNull();
+        expect(kidscodeLogo.closest('button')).toBeNull();
+        expect(queryByAltText('Scratch')).toBeFalsy();
+        expect(queryByRole('button', {name: 'Home'})).toBeFalsy();
+        expect(queryByText('Share')).toBeFalsy();
+        expect(queryByText('See Project Page')).toBeFalsy();
+    });
+
     test('Kidscode status derives Unsaved from Scratch project changes', () => {
         const dirtyStore = configureStore()({
             ...store.getState(),
@@ -100,6 +115,7 @@ describe('MenuBar Component', () => {
             canManageFiles: true,
             canRemix: false,
             canSave: false,
+            showComingSoon: true,
             onStartSelectingFileUpload: jest.fn()
         }));
 
@@ -107,6 +123,9 @@ describe('MenuBar Component', () => {
         expect(queryByRole('button', {name: 'Save project'})).toBeFalsy();
         expect(queryByRole('button', {name: 'Submit project'})).toBeFalsy();
         expect(queryByRole('status')).toBeFalsy();
+        expect(getByRole('button', {name: 'Home'})).toBeTruthy();
+        expect(getByText('Share')).toBeTruthy();
+        expect(getByText('See Project Page')).toBeTruthy();
         expect(getByDisplayValue('Redux project title')).toBeTruthy();
 
         fireEvent.click(getByRole('button', {name: 'File menu'}));

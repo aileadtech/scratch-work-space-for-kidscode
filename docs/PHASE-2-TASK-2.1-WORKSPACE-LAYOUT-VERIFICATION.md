@@ -25,6 +25,38 @@ bar — with the three Kidscode elements integrated directly into it, alongside 
 File/Edit/Settings menus, title slot, and account-info area. No second bar exists anywhere in the
 layout.
 
+## Final Phase 2 navigation and branding polish
+
+The final Phase 2 polish keeps the single integrated menu bar while changing three elements only
+when `kidscodeProjectTitle` identifies the Kidscode workspace mode:
+
+- Scratch's Share control is not rendered; Kidscode continues to use its separate Submit control.
+- Scratch's See Project Page control is not rendered, and its wrapper does not reserve menu space.
+- Scratch's clickable logo is replaced by the approved
+  `components/kidscode-menu-bar/kidscode-logo.svg` asset. The Kidscode wordmark is an image inside
+  a plain `div`, with `alt="Kidscode"`, no link or button ancestor, no click handler, and no
+  interactive cursor or keyboard focus.
+
+The final Kidscode order remains Back to Kidscode, Kidscode branding, File, Edit, Project,
+Settings, project title, Save, workspace status, Submit, and student indicator. Language selection
+remains available through Settings. Normal Scratch mode retains its clickable Scratch logo,
+Share, See Project Page, editable project title, File/Edit/Settings menus, and language selection.
+
+Focused verification covered the final `menu-bar` unit test plus the project-controls and
+workspace-state component suites: **3/3 suites and 25/25 tests pass**. Focused ESLint reported
+**0 errors** (six pre-existing `arrow-parens` warnings), and the development webpack build
+compiled successfully with zero errors. No translation messages changed, so i18n extraction was
+not required.
+
+Browser verification passed at 1440x900, 1366x768, 1280x800, and 1024x768: the menu remained a
+single 48px row with no horizontal overflow, wrapping, or empty gaps. The project title,
+Save/status/Submit controls, and student indicator remained visible, and the Kidscode logo fit
+cleanly at every width. Keyboard focus skipped the display-only logo and continued through the
+remaining menu controls in order. At 1000x768, the Phase 1 restriction overlay appeared while the
+editor remained mounted underneath. The normal standalone Scratch route retained its original
+logo and controls. Console review found no new fatal localhost errors; output was limited to known
+upstream React development warnings and a browser-extension error unrelated to the application.
+
 The integration point is `MenuBar` (`components/menu-bar/menu-bar.jsx`), extended with three new,
 optional props (`onBackToKidscode`, `kidscodeProjectTitle`, `kidscodeStudentName`) threaded through
 `GUIComponent`. All three default to `undefined`; when unset, `MenuBar` renders exactly as
@@ -49,7 +81,8 @@ consumer of `GUIComponent`.
 ## Back to Kidscode implementation
 
 A new button, first item in the menu bar's existing `.file-group` (left cluster), before the
-Scratch logo. Takes a required `onBackToKidscode` callback prop — no hardcoded URL, no
+branding slot (the Scratch logo in normal mode and display-only Kidscode branding in Kidscode
+mode). Takes a required `onBackToKidscode` callback prop — no hardcoded URL, no
 `console`/debug placeholder. `playground/render-gui.jsx` supplies a safe no-op
 (`const onBackToKidscode = () => {};`) as the Phase 2 default; Phase 3 can pass a real navigation
 handler at that single call site without touching `MenuBar`, `GUIComponent`, or the button
@@ -126,9 +159,11 @@ bar elements. The editor remains mounted underneath (see Project-state preservat
 
 ## Scratch editor regression result
 
-Stage, block palette (all 9 categories), sprite pane, green-flag/stop controls, and Scratch's own
-File/Edit/Settings/Share/Tutorials/Debug controls all render and remain reachable at every
-supported width. No Scratch-internal file (`scratch-vm`, `scratch-render`, `scratch-storage`,
+Stage, block palette (all 9 categories), sprite pane, green-flag/stop controls, and the applicable
+Scratch controls all render and remain reachable at every supported width. File/Edit/Settings,
+Tutorials, and Debug remain available in Kidscode mode; the final Phase 2 polish intentionally
+hides Share there. Normal Scratch mode retains Share. No Scratch-internal file (`scratch-vm`,
+`scratch-render`, `scratch-storage`,
 `scratch-blocks`, `scratch-paint`) was modified.
 
 ## Project-state preservation result

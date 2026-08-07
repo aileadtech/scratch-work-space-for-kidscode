@@ -55,6 +55,22 @@
     cursor: pointer;
 }
 
+.kidscode-branding {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    height: $menu-bar-height;
+    margin: 0 .25rem;
+    padding: 0 0.5rem;
+    user-select: none;
+}
+
+.kidscode-logo {
+    display: block;
+    width: auto;
+    height: 1.6rem;
+}
+
 .menu-bar-item {
     display: flex;
     padding: 0 0.25rem;
