@@ -12,6 +12,15 @@ const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
 };
 
+// Phase 2 placeholders -- Phase 3 replaces these two values with real data from the
+// secure launch session, and `onBackToKidscode` with a real navigation handler,
+// without touching MenuBar or GUIComponent (see the `kidscodeProjectTitle` /
+// `kidscodeStudentName` / `onBackToKidscode` props threaded through both).
+const KIDSCODE_PLACEHOLDER_PROJECT_TITLE = 'Untitled Project';
+const KIDSCODE_PLACEHOLDER_STUDENT_NAME = 'Student';
+// Safe no-op: Phase 2 has no navigation target to return to.
+const onBackToKidscode = () => {};
+
 const handleTelemetryModalCancel = () => {
     log('User canceled telemetry modal');
 };
@@ -66,23 +75,31 @@ export default appTarget => {
 
     root.render(
         // important: this is checking whether `simulateScratchDesktop` is truthy, not just defined!
-        simulateScratchDesktop ?
+        simulateScratchDesktop ? (
             <WrappedGui
-                canEditTitle
+                canEditTitle={false}
+                kidscodeProjectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
+                kidscodeStudentName={KIDSCODE_PLACEHOLDER_STUDENT_NAME}
                 platform={PLATFORM.DESKTOP}
                 showTelemetryModal
                 canSave={false}
+                onBackToKidscode={onBackToKidscode}
                 onTelemetryModalCancel={handleTelemetryModalCancel}
                 onTelemetryModalOptIn={handleTelemetryModalOptIn}
                 onTelemetryModalOptOut={handleTelemetryModalOptOut}
-            /> :
+            />
+        ) : (
             <WrappedGui
-                canEditTitle
+                canEditTitle={false}
+                kidscodeProjectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
+                kidscodeStudentName={KIDSCODE_PLACEHOLDER_STUDENT_NAME}
                 backpackVisible
                 showComingSoon
                 backpackHost={backpackHost}
                 canSave={false}
+                onBackToKidscode={onBackToKidscode}
                 onClickLogo={onClickLogo}
             />
+        )
     );
 };

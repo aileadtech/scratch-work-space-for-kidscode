@@ -76,6 +76,10 @@ import sharedMessages from '../../lib/shared-messages';
 import {AccountMenuOptionsPropTypes} from '../../lib/account-menu-options';
 import AccountMenu from './account-menu.jsx';
 
+import BackToKidscodeButton from '../kidscode-menu-bar/back-to-kidscode-button.jsx';
+import KidscodeProjectTitle from '../kidscode-menu-bar/kidscode-project-title.jsx';
+import KidscodeStudentIndicator from '../kidscode-menu-bar/kidscode-student-indicator.jsx';
+
 const ariaMessages = defineMessages({
     tutorials: {
         id: 'gui.menuBar.tutorialsLibrary',
@@ -327,6 +331,9 @@ class MenuBar extends React.Component {
             >
                 <div className={styles.mainMenu}>
                     <div className={styles.fileGroup}>
+                        {this.props.onBackToKidscode && (
+                            <BackToKidscodeButton onBackToKidscode={this.props.onBackToKidscode} />
+                        )}
                         <button
                             aria-label={this.props.intl.formatMessage(ariaMessages.home)}
                             className={classNames(styles.menuBarItem)}
@@ -379,7 +386,11 @@ class MenuBar extends React.Component {
                             depth={1}
                         />)}
                     </div>
-                    {this.props.canEditTitle ? (
+                    {this.props.kidscodeProjectTitle ? (
+                        <div className={classNames(styles.menuBarItem, styles.growable)}>
+                            <KidscodeProjectTitle title={this.props.kidscodeProjectTitle} />
+                        </div>
+                    ) : this.props.canEditTitle ? (
                         <div className={classNames(styles.menuBarItem, styles.growable)}>
                             <MenuBarItemTooltip
                                 enable
@@ -577,6 +588,11 @@ class MenuBar extends React.Component {
                                 ) : null}
                             </React.Fragment>
                         )
+                    ) : this.props.kidscodeStudentName ? (
+                        // Kidscode has no Scratch login session of its own -- the student
+                        // indicator takes over the slot Scratch's own account UI would
+                        // otherwise occupy here.
+                        <KidscodeStudentIndicator studentName={this.props.kidscodeStudentName} />
                     ) : (
                         // ******** no login session is available, so don't show login stuff
                         <React.Fragment>
@@ -668,6 +684,8 @@ MenuBar.propTypes = {
     isShowingProject: PropTypes.bool,
     isTotallyNormal: PropTypes.bool,
     isUpdating: PropTypes.bool,
+    kidscodeProjectTitle: PropTypes.string,
+    kidscodeStudentName: PropTypes.string,
     locale: PropTypes.string.isRequired,
     loginMenuOpen: PropTypes.bool,
     logo: PropTypes.string,
@@ -676,6 +694,7 @@ MenuBar.propTypes = {
     mode2020: PropTypes.bool,
     mode220022BC: PropTypes.bool,
     modeNow: PropTypes.bool,
+    onBackToKidscode: PropTypes.func,
     onClickAbout: PropTypes.oneOfType([
         PropTypes.func, // button mode: call this callback when the About button is clicked
         PropTypes.arrayOf( // menu mode: list of items in the About menu

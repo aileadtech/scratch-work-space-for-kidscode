@@ -157,9 +157,12 @@ const GUIComponent = props => {
         isShared,
         isTelemetryEnabled,
         isTotallyNormal,
+        kidscodeProjectTitle,
+        kidscodeStudentName,
         loading,
         logo,
         manuallySaveThumbnails,
+        onBackToKidscode,
         onSetManualThumbnail,
         onSetManualThumbnailButtonClick,
         menuBarHidden,
@@ -355,9 +358,12 @@ const GUIComponent = props => {
                             hasActiveMembership={hasActiveMembership}
                             isShared={isShared}
                             isTotallyNormal={isTotallyNormal}
+                            kidscodeProjectTitle={kidscodeProjectTitle}
+                            kidscodeStudentName={kidscodeStudentName}
                             logo={logo}
                             renderLogin={renderLogin}
                             showComingSoon={showComingSoon}
+                            onBackToKidscode={onBackToKidscode}
                             onClickAbout={onClickAbout}
                             onClickLogo={onClickLogo}
                             onLogOut={onLogOut}
@@ -619,9 +625,12 @@ GUIComponent.propTypes = {
     isRtl: PropTypes.bool,
     isShared: PropTypes.bool,
     isTotallyNormal: PropTypes.bool,
+    kidscodeProjectTitle: PropTypes.string,
+    kidscodeStudentName: PropTypes.string,
     loading: PropTypes.bool,
     logo: PropTypes.string,
     manuallySaveThumbnails: PropTypes.bool,
+    onBackToKidscode: PropTypes.func,
     onSetManualThumbnail: PropTypes.func,
     onSetManualThumbnailButtonClick: PropTypes.func,
     menuBarHidden: PropTypes.bool,
