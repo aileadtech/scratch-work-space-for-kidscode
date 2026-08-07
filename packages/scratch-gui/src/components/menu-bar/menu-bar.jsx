@@ -51,6 +51,7 @@ import {
     closeLoginMenu,
     loginMenuOpen
 } from '../../reducers/menus';
+import {setProjectTitle} from '../../reducers/project-title';
 
 import collectMetadata from '../../lib/collect-metadata';
 import {PLATFORM} from '../../lib/platform';
@@ -77,6 +78,10 @@ import {AccountMenuOptionsPropTypes} from '../../lib/account-menu-options';
 import AccountMenu from './account-menu.jsx';
 
 import BackToKidscodeButton from '../kidscode-menu-bar/back-to-kidscode-button.jsx';
+import {
+    KidscodeProjectActionButtons,
+    KidscodeProjectMenu
+} from '../kidscode-menu-bar/kidscode-project-controls.jsx';
 import KidscodeProjectTitle from '../kidscode-menu-bar/kidscode-project-title.jsx';
 import KidscodeStudentIndicator from '../kidscode-menu-bar/kidscode-student-indicator.jsx';
 
@@ -165,6 +170,7 @@ class MenuBar extends React.Component {
             'handleClickNew',
             'handleClickSeeCommunity',
             'handleClickShare',
+            'handleRenameProject',
             'handleSetMode',
             'handleKeyPress',
             'handleRestoreOption',
@@ -245,6 +251,10 @@ class MenuBar extends React.Component {
             this.props.onSetTimeTravelMode(mode);
         };
     }
+    handleRenameProject (title) {
+        this.props.onSetProjectTitle(title);
+        this.props.onRenameProject(title);
+    }
     handleRestoreOption (restoreFun) {
         return () => {
             restoreFun();
@@ -253,7 +263,11 @@ class MenuBar extends React.Component {
     handleKeyPress (event) {
         const modifier = bowser.mac ? event.metaKey : event.ctrlKey;
         if (modifier && event.key === 's') {
-            this.props.onClickSave();
+            if (this.props.kidscodeProjectTitle) {
+                this.props.onSaveProject();
+            } else {
+                this.props.onClickSave();
+            }
             event.preventDefault();
         }
     }
@@ -323,7 +337,8 @@ class MenuBar extends React.Component {
             <Box
                 className={classNames(
                     this.props.className,
-                    styles.menuBar
+                    styles.menuBar,
+                    {[styles.kidscode]: this.props.kidscodeProjectTitle}
                 )}
                 aria-label={this.props.ariaLabel}
                 role={this.props.ariaRole}
@@ -349,7 +364,8 @@ class MenuBar extends React.Component {
                                 src={getScratchLogo(this.props.platform)}
                             />
                         </button>
-                        {(this.props.canChangeColorMode || this.props.canChangeLanguage || this.props.canChangeTheme) &&
+                        {!this.props.kidscodeProjectTitle &&
+                        (this.props.canChangeColorMode || this.props.canChangeLanguage || this.props.canChangeTheme) &&
                         (<SettingsMenu
                             canChangeLanguage={this.props.canChangeLanguage}
                             canChangeColorMode={this.props.canChangeColorMode}
@@ -378,6 +394,29 @@ class MenuBar extends React.Component {
                             restoreOptionMessage={this.restoreOptionMessage}
                             depth={1}
                         />
+                        {this.props.kidscodeProjectTitle && (
+                            <KidscodeProjectMenu
+                                getSaveToComputerHandler={this.getSaveToComputerHandler}
+                                isRtl={this.props.isRtl}
+                                projectTitle={this.props.projectTitle}
+                                onDeleteDraft={this.props.onDeleteDraft}
+                                onDuplicateProject={this.props.onDuplicateProject}
+                                onRenameProject={this.handleRenameProject}
+                                onReturnToLesson={this.props.onReturnToLesson}
+                                onReturnToMyScratchProjects={this.props.onReturnToMyScratchProjects}
+                            />
+                        )}
+                        {this.props.kidscodeProjectTitle &&
+                        (this.props.canChangeColorMode || this.props.canChangeLanguage || this.props.canChangeTheme) &&
+                        (<SettingsMenu
+                            canChangeLanguage={this.props.canChangeLanguage}
+                            canChangeColorMode={this.props.canChangeColorMode}
+                            canChangeTheme={this.props.canChangeTheme}
+                            hasActiveMembership={this.props.hasActiveMembership}
+                            hideLabel
+                            isRtl={this.props.isRtl}
+                            depth={1}
+                        />)}
                         {this.props.isTotallyNormal && (<ModeMenu
                             onSetMode={this.handleSetMode}
                             modeNow={this.props.modeNow}
@@ -388,7 +427,7 @@ class MenuBar extends React.Component {
                     </div>
                     {this.props.kidscodeProjectTitle ? (
                         <div className={classNames(styles.menuBarItem, styles.growable)}>
-                            <KidscodeProjectTitle title={this.props.kidscodeProjectTitle} />
+                            <KidscodeProjectTitle title={this.props.projectTitle} />
                         </div>
                     ) : this.props.canEditTitle ? (
                         <div className={classNames(styles.menuBarItem, styles.growable)}>
@@ -411,6 +450,12 @@ class MenuBar extends React.Component {
                             avatarBadge={this.props.authorAvatarBadge}
                         />
                     ) : null)}
+                    {this.props.kidscodeProjectTitle && (
+                        <KidscodeProjectActionButtons
+                            onSaveProject={this.props.onSaveProject}
+                            onSubmitProject={this.props.onSubmitProject}
+                        />
+                    )}
                     <div className={classNames(styles.menuBarItem)}>
                         {this.props.canShare ? (
                             (this.props.isShowingProject || this.props.isUpdating) && (
@@ -711,16 +756,24 @@ MenuBar.propTypes = {
     onClickRemix: PropTypes.func,
     onClickSave: PropTypes.func,
     onClickSaveAsCopy: PropTypes.func,
+    onDeleteDraft: PropTypes.func,
+    onDuplicateProject: PropTypes.func,
     onLogOut: PropTypes.func,
     onOpenRegistration: PropTypes.func,
     onOpenTipLibrary: PropTypes.func,
     onOpenDebugModal: PropTypes.func,
     onProjectTelemetryEvent: PropTypes.func,
     onRequestCloseLogin: PropTypes.func,
+    onRenameProject: PropTypes.func,
+    onReturnToLesson: PropTypes.func,
+    onReturnToMyScratchProjects: PropTypes.func,
+    onSaveProject: PropTypes.func,
     onSeeCommunity: PropTypes.func,
+    onSetProjectTitle: PropTypes.func,
     onSetTimeTravelMode: PropTypes.func,
     onShare: PropTypes.func,
     onStartSelectingFileUpload: PropTypes.func,
+    onSubmitProject: PropTypes.func,
     onToggleLoginOpen: PropTypes.func,
     platform: PropTypes.oneOf(Object.keys(PLATFORM)),
     projectTitle: PropTypes.string,
@@ -738,7 +791,14 @@ MenuBar.propTypes = {
 
 MenuBar.defaultProps = {
     logo: scratchLogo,
-    onShare: () => {}
+    onDeleteDraft: () => {},
+    onDuplicateProject: () => {},
+    onRenameProject: () => {},
+    onReturnToLesson: () => {},
+    onReturnToMyScratchProjects: () => {},
+    onSaveProject: () => {},
+    onShare: () => {},
+    onSubmitProject: () => {}
 };
 
 const mapStateToProps = (state, ownProps) => {
@@ -798,6 +858,7 @@ const mapDispatchToProps = (dispatch, ownProps) => ({
     onClickRemix: () => dispatch(remixProject()),
     onRequestCloseLogin: () => dispatch(closeLoginMenu()),
     onSeeCommunity: ownProps.onSeeCommunity ?? (() => dispatch(setPlayer(true))),
+    onSetProjectTitle: title => dispatch(setProjectTitle(title)),
     onSetTimeTravelMode: mode => dispatch(setTimeTravel(mode))
 });
 

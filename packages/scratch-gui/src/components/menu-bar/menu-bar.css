@@ -39,6 +39,10 @@
     align-items: center;
     flex-grow: 1;
 }
+
+.menu-bar.kidscode .main-menu {
+    min-width: 0;
+}
 .inactive {
     opacity: 0;
 }
@@ -81,6 +85,7 @@
 
 .menu-bar-item.growable {
     max-width: $menu-bar-item-max-width;
+    min-width: 0;
     flex: 1;
 }
 
@@ -234,5 +239,22 @@
 
     .help-icon {
         margin-right: 0;
+    }
+}
+
+@media only screen and (max-width: 1440px) {
+    .menu-bar.kidscode .tutorials-label,
+    .menu-bar.kidscode .debug-label {
+        display: none;
+    }
+
+    .menu-bar.kidscode .help-icon {
+        margin-right: 0;
+    }
+}
+
+@media only screen and (max-width: 1025px) {
+    .menu-bar.kidscode .collapsible-label {
+        display: none;
     }
 }

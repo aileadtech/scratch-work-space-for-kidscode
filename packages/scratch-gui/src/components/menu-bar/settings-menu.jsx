@@ -36,6 +36,7 @@ const SettingsMenu = ({
     canChangeColorMode,
     canChangeTheme,
     hasActiveMembership,
+    hideLabel,
     isRtl,
     activeColorMode,
     onChangeColorMode,
@@ -82,7 +83,11 @@ const SettingsMenu = ({
         ref={menuRef}
     >
         <img src={settingsIcon} />
-        <span className={styles.dropdownLabel}>
+        <span
+            className={classNames(styles.dropdownLabel, {
+                [styles.hiddenLabel]: hideLabel
+            })}
+        >
             <FormattedMessage
                 defaultMessage="Settings"
                 description="Settings menu"
@@ -136,6 +141,7 @@ SettingsMenu.propTypes = {
     canChangeColorMode: PropTypes.bool,
     canChangeTheme: PropTypes.bool,
     hasActiveMembership: PropTypes.bool,
+    hideLabel: PropTypes.bool,
     isRtl: PropTypes.bool,
     activeColorMode: PropTypes.string,
     onChangeColorMode: PropTypes.func,

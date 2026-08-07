@@ -33,10 +33,9 @@
     margin-left: 0.375rem;
 }
 
-/* Collapses to icon-only at the same narrow-width breakpoint menu-bar.css already
-   uses for its own labels (tutorials, debug) -- see the "future overflow menu" note
-   in menu-bar.jsx for what handles anything beyond this. */
-@media only screen and (max-width: 1024px) {
+/* Keep the Kidscode bar compact at common laptop widths while preserving the
+   accessible name supplied by the button's aria-label. */
+@media only screen and (max-width: 1366px) {
     .back-label {
         display: none;
     }

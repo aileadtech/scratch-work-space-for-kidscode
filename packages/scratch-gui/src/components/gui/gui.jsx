@@ -163,6 +163,12 @@ const GUIComponent = props => {
         logo,
         manuallySaveThumbnails,
         onBackToKidscode,
+        onDeleteDraft,
+        onDuplicateProject,
+        onRenameProject,
+        onReturnToLesson,
+        onReturnToMyScratchProjects,
+        onSaveProject,
         onSetManualThumbnail,
         onSetManualThumbnailButtonClick,
         menuBarHidden,
@@ -189,6 +195,7 @@ const GUIComponent = props => {
         onShare,
         onShowPrivacyPolicy,
         onStartSelectingFileUpload,
+        onSubmitProject,
         onTelemetryModalCancel,
         onTelemetryModalOptIn,
         onTelemetryModalOptOut,
@@ -366,13 +373,20 @@ const GUIComponent = props => {
                             onBackToKidscode={onBackToKidscode}
                             onClickAbout={onClickAbout}
                             onClickLogo={onClickLogo}
+                            onDeleteDraft={onDeleteDraft}
+                            onDuplicateProject={onDuplicateProject}
                             onLogOut={onLogOut}
                             onClickLogin={onClickLogin}
                             onOpenRegistration={onOpenRegistration}
                             onProjectTelemetryEvent={onProjectTelemetryEvent}
+                            onRenameProject={onRenameProject}
+                            onReturnToLesson={onReturnToLesson}
+                            onReturnToMyScratchProjects={onReturnToMyScratchProjects}
+                            onSaveProject={onSaveProject}
                             onSeeCommunity={onSeeCommunity}
                             onShare={onShare}
                             onStartSelectingFileUpload={onStartSelectingFileUpload}
+                            onSubmitProject={onSubmitProject}
                             onToggleLoginOpen={onToggleLoginOpen}
                             userOwnsProject={userOwnsProject}
                             username={username}
@@ -631,6 +645,12 @@ GUIComponent.propTypes = {
     logo: PropTypes.string,
     manuallySaveThumbnails: PropTypes.bool,
     onBackToKidscode: PropTypes.func,
+    onDeleteDraft: PropTypes.func,
+    onDuplicateProject: PropTypes.func,
+    onRenameProject: PropTypes.func,
+    onReturnToLesson: PropTypes.func,
+    onReturnToMyScratchProjects: PropTypes.func,
+    onSaveProject: PropTypes.func,
     onSetManualThumbnail: PropTypes.func,
     onSetManualThumbnailButtonClick: PropTypes.func,
     menuBarHidden: PropTypes.bool,
@@ -652,6 +672,7 @@ GUIComponent.propTypes = {
     onShare: PropTypes.func,
     onShowPrivacyPolicy: PropTypes.func,
     onStartSelectingFileUpload: PropTypes.func,
+    onSubmitProject: PropTypes.func,
     onTabSelect: PropTypes.func,
     onTelemetryModalCancel: PropTypes.func,
     onTelemetryModalOptIn: PropTypes.func,

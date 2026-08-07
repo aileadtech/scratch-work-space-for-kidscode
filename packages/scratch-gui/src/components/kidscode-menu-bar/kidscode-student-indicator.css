@@ -42,12 +42,10 @@
     border: 0;
 }
 
-/* Collapses to avatar-only at the same narrow-width breakpoint menu-bar.css already
-   uses for its own labels (tutorials, debug). Visually hidden via the same technique
-   as .visually-hidden, not `display: none` -- the name must stay in the accessibility
-   tree so screen reader users still get it alongside the "(student account)" label
-   below, instead of losing the name entirely at this width. */
-@media only screen and (max-width: 1024px) {
+/* Collapses to avatar-only at common laptop widths. Visually hidden via the same
+   technique as .visually-hidden, not `display: none` -- the name must stay in the
+   accessibility tree alongside the "(student account)" label below. */
+@media only screen and (max-width: 1366px) {
     .student-name {
         position: absolute;
         overflow: hidden;

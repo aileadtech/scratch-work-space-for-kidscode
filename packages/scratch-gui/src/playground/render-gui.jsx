@@ -12,14 +12,18 @@ const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
 };
 
-// Phase 2 placeholders -- Phase 3 replaces these two values with real data from the
-// secure launch session, and `onBackToKidscode` with a real navigation handler,
-// without touching MenuBar or GUIComponent (see the `kidscodeProjectTitle` /
-// `kidscodeStudentName` / `onBackToKidscode` props threaded through both).
+// Phase 2 placeholders -- later phases replace these values and callback seams with
+// secure-launch data, persistence, submission, and navigation handlers.
 const KIDSCODE_PLACEHOLDER_PROJECT_TITLE = 'Untitled Project';
 const KIDSCODE_PLACEHOLDER_STUDENT_NAME = 'Student';
-// Safe no-op: Phase 2 has no navigation target to return to.
 const onBackToKidscode = () => {};
+const onDeleteDraft = () => {};
+const onDuplicateProject = () => {};
+const onRenameProject = () => {};
+const onReturnToLesson = () => {};
+const onReturnToMyScratchProjects = () => {};
+const onSaveProject = () => {};
+const onSubmitProject = () => {};
 
 const handleTelemetryModalCancel = () => {
     log('User canceled telemetry modal');
@@ -80,10 +84,18 @@ export default appTarget => {
                 canEditTitle={false}
                 kidscodeProjectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
                 kidscodeStudentName={KIDSCODE_PLACEHOLDER_STUDENT_NAME}
+                projectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
                 platform={PLATFORM.DESKTOP}
                 showTelemetryModal
                 canSave={false}
                 onBackToKidscode={onBackToKidscode}
+                onDeleteDraft={onDeleteDraft}
+                onDuplicateProject={onDuplicateProject}
+                onRenameProject={onRenameProject}
+                onReturnToLesson={onReturnToLesson}
+                onReturnToMyScratchProjects={onReturnToMyScratchProjects}
+                onSaveProject={onSaveProject}
+                onSubmitProject={onSubmitProject}
                 onTelemetryModalCancel={handleTelemetryModalCancel}
                 onTelemetryModalOptIn={handleTelemetryModalOptIn}
                 onTelemetryModalOptOut={handleTelemetryModalOptOut}
@@ -93,12 +105,20 @@ export default appTarget => {
                 canEditTitle={false}
                 kidscodeProjectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
                 kidscodeStudentName={KIDSCODE_PLACEHOLDER_STUDENT_NAME}
+                projectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
                 backpackVisible
                 showComingSoon
                 backpackHost={backpackHost}
                 canSave={false}
                 onBackToKidscode={onBackToKidscode}
                 onClickLogo={onClickLogo}
+                onDeleteDraft={onDeleteDraft}
+                onDuplicateProject={onDuplicateProject}
+                onRenameProject={onRenameProject}
+                onReturnToLesson={onReturnToLesson}
+                onReturnToMyScratchProjects={onReturnToMyScratchProjects}
+                onSaveProject={onSaveProject}
+                onSubmitProject={onSubmitProject}
             />
         )
     );
