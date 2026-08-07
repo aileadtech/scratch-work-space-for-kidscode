@@ -7,6 +7,7 @@ import GUI from '../containers/gui.jsx';
 import HashParserHOC from '../lib/hash-parser-hoc.jsx';
 import log from '../lib/log.js';
 import {PLATFORM} from '../lib/platform.js';
+import {KidscodeWorkspaceStates} from '../lib/kidscode-workspace-state';
 
 const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
@@ -57,6 +58,12 @@ export default appTarget => {
     const backpackHostMatches = window.location.href.match(/[?&]backpack_host=([^&]*)&?/);
     const backpackHost = backpackHostMatches ? backpackHostMatches[1] : null;
 
+    // Allows each controlled Phase 2 workspace state to be inspected locally
+    // without simulating persistence, authentication, or network behaviour.
+    const requestedWorkspaceState = new URLSearchParams(window.location.search).get('workspaceState');
+    const kidscodeWorkspaceState = KidscodeWorkspaceStates.includes(requestedWorkspaceState) ?
+        requestedWorkspaceState : null;
+
     const scratchDesktopMatches = window.location.href.match(/[?&]isScratchDesktop=([^&]+)/);
     let simulateScratchDesktop;
     if (scratchDesktopMatches) {
@@ -84,6 +91,7 @@ export default appTarget => {
                 canEditTitle={false}
                 kidscodeProjectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
                 kidscodeStudentName={KIDSCODE_PLACEHOLDER_STUDENT_NAME}
+                kidscodeWorkspaceState={kidscodeWorkspaceState}
                 projectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
                 platform={PLATFORM.DESKTOP}
                 showTelemetryModal
@@ -105,6 +113,7 @@ export default appTarget => {
                 canEditTitle={false}
                 kidscodeProjectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
                 kidscodeStudentName={KIDSCODE_PLACEHOLDER_STUDENT_NAME}
+                kidscodeWorkspaceState={kidscodeWorkspaceState}
                 projectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
                 backpackVisible
                 showComingSoon

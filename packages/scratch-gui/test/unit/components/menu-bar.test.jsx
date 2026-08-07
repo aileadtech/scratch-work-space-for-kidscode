@@ -23,6 +23,7 @@ describe('MenuBar Component', () => {
         },
         scratchGui: {
             menus: menuInitialState,
+            projectChanged: false,
             projectTitle: 'Redux project title',
             projectState: {
                 loadingState: LoadingState.NOT_LOADED
@@ -44,8 +45,8 @@ describe('MenuBar Component', () => {
         }
     });
 
-    const getComponent = function (props = {}) {
-        return (<Provider store={store}>
+    const getComponent = function (props = {}, activeStore = store) {
+        return (<Provider store={activeStore}>
             <MenuRefProvider>
                 <MenuBar {...props} />
             </MenuRefProvider>
@@ -74,6 +75,22 @@ describe('MenuBar Component', () => {
         expect(queryByText('Initial Kidscode title')).toBeFalsy();
     });
 
+    test('Kidscode status derives Unsaved from Scratch project changes', () => {
+        const dirtyStore = configureStore()({
+            ...store.getState(),
+            scratchGui: {
+                ...store.getState().scratchGui,
+                projectChanged: true
+            }
+        });
+        const {getByRole, getByText} = renderWithIntl(getComponent({
+            kidscodeProjectTitle: 'Kidscode title'
+        }, dirtyStore));
+
+        expect(getByRole('status')).toBeTruthy();
+        expect(getByText('Unsaved')).toBeTruthy();
+    });
+
     test('standard Scratch controls are unchanged without Kidscode props', () => {
         store.clearActions();
         const {getByDisplayValue, getByRole, getByText, queryByRole} = renderWithIntl(getComponent({
@@ -89,6 +106,7 @@ describe('MenuBar Component', () => {
         expect(queryByRole('button', {name: 'Project menu'})).toBeFalsy();
         expect(queryByRole('button', {name: 'Save project'})).toBeFalsy();
         expect(queryByRole('button', {name: 'Submit project'})).toBeFalsy();
+        expect(queryByRole('status')).toBeFalsy();
         expect(getByDisplayValue('Redux project title')).toBeTruthy();
 
         fireEvent.click(getByRole('button', {name: 'File menu'}));
@@ -117,8 +135,7 @@ describe('MenuBar Component', () => {
     
         test('not clicking on About button does not call the handler', () => {
             const onClickAbout = jest.fn();
-            const {container} = renderWithIntl(getComponent({onClickAbout}));
-            const button = container.querySelector('button[aria-label="About menu"]');
+            renderWithIntl(getComponent({onClickAbout}));
     
             expect(onClickAbout).toHaveBeenCalledTimes(0);
         });

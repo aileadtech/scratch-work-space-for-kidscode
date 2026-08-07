@@ -148,9 +148,13 @@ class LoaderComponent extends React.Component {
     render () {
         return (
             <div
+                aria-atomic="true"
+                aria-busy="true"
+                aria-live="polite"
                 className={classNames(styles.background, {
                     [styles.fullscreen]: this.props.isFullScreen
                 })}
+                role="status"
             >
                 <div className={styles.container}>
                     <div className={styles.blockAnimation}>
@@ -170,7 +174,10 @@ class LoaderComponent extends React.Component {
                     <div className={styles.title}>
                         {mainMessages[this.props.messageId]}
                     </div>
-                    <div className={styles.messageContainerOuter}>
+                    <div
+                        aria-hidden="true"
+                        className={styles.messageContainerOuter}
+                    >
                         <div
                             className={styles.messageContainerInner}
                             style={{transform: `translate(0, -${this.state.messageNumber * 25}px)`}}

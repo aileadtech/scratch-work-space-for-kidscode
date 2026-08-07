@@ -31,6 +31,7 @@ import Alerts from '../../containers/alerts.jsx';
 import DragLayer from '../../containers/drag-layer.jsx';
 import ConnectionModal from '../../containers/connection-modal.jsx';
 import TelemetryModal from '../telemetry-modal/telemetry-modal.jsx';
+import {KidscodeWorkspaceBlockingState} from '../kidscode-menu-bar/kidscode-workspace-state.jsx';
 
 import layout, {STAGE_SIZE_MODES} from '../../lib/layout-constants';
 import {resolveStageSize} from '../../lib/screen-utils';
@@ -46,6 +47,10 @@ import DebugModal from '../debug-modal/debug-modal.jsx';
 import {setPlatform} from '../../reducers/platform.js';
 import {setTheme} from '../../reducers/settings.js';
 import {PLATFORM} from '../../lib/platform.js';
+import {
+    KidscodeWorkspaceState,
+    KidscodeWorkspaceStates
+} from '../../lib/kidscode-workspace-state';
 import {MenuRefProvider} from '../../contexts/menu-ref-context.jsx';
 import {ModalFocusProvider} from '../../contexts/modal-focus-context.jsx';
 
@@ -159,6 +164,7 @@ const GUIComponent = props => {
         isTotallyNormal,
         kidscodeProjectTitle,
         kidscodeStudentName,
+        kidscodeWorkspaceState,
         loading,
         logo,
         manuallySaveThumbnails,
@@ -196,6 +202,7 @@ const GUIComponent = props => {
         onShowPrivacyPolicy,
         onStartSelectingFileUpload,
         onSubmitProject,
+        onWorkspaceStateAction,
         onTelemetryModalCancel,
         onTelemetryModalOptIn,
         onTelemetryModalOptOut,
@@ -256,6 +263,9 @@ const GUIComponent = props => {
         onRequestCloseDebugModal();
     }, [onDebugModalClose, onRequestCloseDebugModal]);
 
+    const kidscodeWorkspaceLoading = Boolean(kidscodeProjectTitle) &&
+        kidscodeWorkspaceState === KidscodeWorkspaceState.LOADING_PROJECT;
+
     if (isRendererSupported === null) {
         isRendererSupported = Renderer.isSupported();
     }
@@ -297,8 +307,15 @@ const GUIComponent = props => {
                             onShowPrivacyPolicy={onShowPrivacyPolicy}
                         />
                     ) : null}
-                    {loading ? (
+                    {loading && !kidscodeWorkspaceLoading ? (
                         <Loader />
+                    ) : null}
+                    {kidscodeProjectTitle ? (
+                        <KidscodeWorkspaceBlockingState
+                            isRtl={isRtl}
+                            workspaceState={kidscodeWorkspaceState}
+                            onAction={onWorkspaceStateAction}
+                        />
                     ) : null}
                     {isCreating ? (
                         <Loader messageId="gui.loader.creating" />
@@ -367,6 +384,7 @@ const GUIComponent = props => {
                             isTotallyNormal={isTotallyNormal}
                             kidscodeProjectTitle={kidscodeProjectTitle}
                             kidscodeStudentName={kidscodeStudentName}
+                            kidscodeWorkspaceState={kidscodeWorkspaceState}
                             logo={logo}
                             renderLogin={renderLogin}
                             showComingSoon={showComingSoon}
@@ -388,6 +406,7 @@ const GUIComponent = props => {
                             onStartSelectingFileUpload={onStartSelectingFileUpload}
                             onSubmitProject={onSubmitProject}
                             onToggleLoginOpen={onToggleLoginOpen}
+                            onWorkspaceStateAction={onWorkspaceStateAction}
                             userOwnsProject={userOwnsProject}
                             username={username}
                             avatarBadge={avatarBadge}
@@ -641,6 +660,7 @@ GUIComponent.propTypes = {
     isTotallyNormal: PropTypes.bool,
     kidscodeProjectTitle: PropTypes.string,
     kidscodeStudentName: PropTypes.string,
+    kidscodeWorkspaceState: PropTypes.oneOf(KidscodeWorkspaceStates),
     loading: PropTypes.bool,
     logo: PropTypes.string,
     manuallySaveThumbnails: PropTypes.bool,
@@ -673,6 +693,7 @@ GUIComponent.propTypes = {
     onShowPrivacyPolicy: PropTypes.func,
     onStartSelectingFileUpload: PropTypes.func,
     onSubmitProject: PropTypes.func,
+    onWorkspaceStateAction: PropTypes.func,
     onTabSelect: PropTypes.func,
     onTelemetryModalCancel: PropTypes.func,
     onTelemetryModalOptIn: PropTypes.func,

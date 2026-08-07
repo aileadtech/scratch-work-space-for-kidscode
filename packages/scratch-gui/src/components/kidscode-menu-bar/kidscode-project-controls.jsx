@@ -17,6 +17,11 @@ import submitIcon from './icon--submit.svg';
 
 import menuBarStyles from '../menu-bar/menu-bar.css';
 import styles from './kidscode-project-controls.css';
+import {KidscodeWorkspaceStatus} from './kidscode-workspace-state.jsx';
+import {
+    KidscodeWorkspaceState,
+    KidscodeWorkspaceStates
+} from '../../lib/kidscode-workspace-state';
 
 const messages = defineMessages({
     projectMenu: {
@@ -408,13 +413,19 @@ KidscodeProjectMenu.propTypes = {
     projectTitle: PropTypes.string.isRequired
 };
 
-const KidscodeProjectActionButtons = ({onSaveProject, onSubmitProject}) => {
+const KidscodeProjectActionButtons = ({
+    onSaveProject,
+    onSubmitProject,
+    onWorkspaceStateAction,
+    workspaceState
+}) => {
     const intl = useIntl();
     return (
         <div className={styles.actionButtons}>
             <button
                 aria-label={intl.formatMessage(messages.saveProject)}
                 className={classNames(styles.actionButton, styles.saveButton)}
+                disabled={workspaceState === KidscodeWorkspaceState.SAVING}
                 onClick={onSaveProject}
             >
                 <img
@@ -426,6 +437,10 @@ const KidscodeProjectActionButtons = ({onSaveProject, onSubmitProject}) => {
                     <FormattedMessage {...messages.save} />
                 </span>
             </button>
+            <KidscodeWorkspaceStatus
+                workspaceState={workspaceState}
+                onAction={onWorkspaceStateAction}
+            />
             <button
                 aria-label={intl.formatMessage(messages.submitProject)}
                 className={classNames(styles.actionButton, styles.submitButton)}
@@ -446,7 +461,9 @@ const KidscodeProjectActionButtons = ({onSaveProject, onSubmitProject}) => {
 
 KidscodeProjectActionButtons.propTypes = {
     onSaveProject: PropTypes.func.isRequired,
-    onSubmitProject: PropTypes.func.isRequired
+    onSubmitProject: PropTypes.func.isRequired,
+    onWorkspaceStateAction: PropTypes.func,
+    workspaceState: PropTypes.oneOf(KidscodeWorkspaceStates)
 };
 
 export {

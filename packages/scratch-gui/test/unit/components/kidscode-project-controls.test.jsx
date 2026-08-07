@@ -10,6 +10,7 @@ import {
     KidscodeProjectActionButtons,
     KidscodeProjectMenu
 } from '../../../src/components/kidscode-menu-bar/kidscode-project-controls.jsx';
+import {KidscodeWorkspaceState} from '../../../src/lib/kidscode-workspace-state';
 
 const mockDownloadProject = jest.fn();
 
@@ -161,5 +162,21 @@ describe('Kidscode project controls', () => {
 
         expect(onSaveProject).toHaveBeenCalledTimes(1);
         expect(onSubmitProject).toHaveBeenCalledTimes(1);
+    });
+
+    test('prevents a duplicate Save click while saving', () => {
+        const onSaveProject = jest.fn();
+        const {getByRole} = renderWithIntl(
+            <KidscodeProjectActionButtons
+                workspaceState={KidscodeWorkspaceState.SAVING}
+                onSaveProject={onSaveProject}
+                onSubmitProject={jest.fn()}
+            />
+        );
+
+        const saveButton = getByRole('button', {name: 'Save project'});
+        expect(saveButton.disabled).toBe(true);
+        fireEvent.click(saveButton);
+        expect(onSaveProject).not.toHaveBeenCalled();
     });
 });

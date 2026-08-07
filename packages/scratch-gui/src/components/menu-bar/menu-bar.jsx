@@ -84,6 +84,10 @@ import {
 } from '../kidscode-menu-bar/kidscode-project-controls.jsx';
 import KidscodeProjectTitle from '../kidscode-menu-bar/kidscode-project-title.jsx';
 import KidscodeStudentIndicator from '../kidscode-menu-bar/kidscode-student-indicator.jsx';
+import {
+    KidscodeWorkspaceStates,
+    resolveKidscodeWorkspaceState
+} from '../../lib/kidscode-workspace-state';
 
 const ariaMessages = defineMessages({
     tutorials: {
@@ -454,6 +458,8 @@ class MenuBar extends React.Component {
                         <KidscodeProjectActionButtons
                             onSaveProject={this.props.onSaveProject}
                             onSubmitProject={this.props.onSubmitProject}
+                            onWorkspaceStateAction={this.props.onWorkspaceStateAction}
+                            workspaceState={this.props.kidscodeWorkspaceState}
                         />
                     )}
                     <div className={classNames(styles.menuBarItem)}>
@@ -731,6 +737,7 @@ MenuBar.propTypes = {
     isUpdating: PropTypes.bool,
     kidscodeProjectTitle: PropTypes.string,
     kidscodeStudentName: PropTypes.string,
+    kidscodeWorkspaceState: PropTypes.oneOf(KidscodeWorkspaceStates),
     locale: PropTypes.string.isRequired,
     loginMenuOpen: PropTypes.bool,
     logo: PropTypes.string,
@@ -775,6 +782,7 @@ MenuBar.propTypes = {
     onStartSelectingFileUpload: PropTypes.func,
     onSubmitProject: PropTypes.func,
     onToggleLoginOpen: PropTypes.func,
+    onWorkspaceStateAction: PropTypes.func,
     platform: PropTypes.oneOf(Object.keys(PLATFORM)),
     projectTitle: PropTypes.string,
     renderLogin: PropTypes.func,
@@ -812,6 +820,11 @@ const mapStateToProps = (state, ownProps) => {
         isRtl: state.locales.isRtl,
         isUpdating: getIsUpdating(loadingState),
         isShowingProject: getIsShowingProject(loadingState),
+        kidscodeWorkspaceState: resolveKidscodeWorkspaceState({
+            workspaceState: ownProps.kidscodeWorkspaceState,
+            projectChanged: state.scratchGui.projectChanged,
+            isUpdating: getIsUpdating(loadingState)
+        }),
         locale: state.locales.locale,
         loginMenuOpen: loginMenuOpen(state),
         projectTitle: state.scratchGui.projectTitle,
