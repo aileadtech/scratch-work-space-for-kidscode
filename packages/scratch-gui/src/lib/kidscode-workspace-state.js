@@ -5,6 +5,8 @@ const KidscodeWorkspaceState = Object.freeze({
     SAVE_FAILED: 'saveFailed',
     LOADING_PROJECT: 'loadingProject',
     SESSION_EXPIRED: 'sessionExpired',
+    LAUNCH_CONNECTION_LOST: 'launchConnectionLost',
+    ACCESS_BLOCKED: 'accessBlocked',
     CONNECTION_LOST: 'connectionLost',
     CORRUPTED_PROJECT: 'corruptedProject'
 });
@@ -16,6 +18,8 @@ const controlledPriorityStates = [
     KidscodeWorkspaceState.SAVE_FAILED,
     KidscodeWorkspaceState.LOADING_PROJECT,
     KidscodeWorkspaceState.SESSION_EXPIRED,
+    KidscodeWorkspaceState.LAUNCH_CONNECTION_LOST,
+    KidscodeWorkspaceState.ACCESS_BLOCKED,
     KidscodeWorkspaceState.CONNECTION_LOST,
     KidscodeWorkspaceState.CORRUPTED_PROJECT
 ];
