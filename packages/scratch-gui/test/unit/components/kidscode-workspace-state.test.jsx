@@ -64,8 +64,13 @@ describe('Kidscode workspace state', () => {
     test.each([
         [
             KidscodeWorkspaceState.SESSION_EXPIRED,
-            'Session expired',
+            'Session Expired',
             'Return to Kidscode'
+        ],
+        [
+            KidscodeWorkspaceState.LAUNCH_CONNECTION_LOST,
+            'Connection Lost',
+            'Try again'
         ],
         [
             KidscodeWorkspaceState.CORRUPTED_PROJECT,
@@ -85,6 +90,18 @@ describe('Kidscode workspace state', () => {
         fireEvent.click(screen.getByRole('button', {name: actionLabel}));
         expect(onAction).toHaveBeenCalledWith(workspaceState);
         expect(screen.getByRole('alertdialog', {name: label})).toBeTruthy();
+    });
+
+    test('renders invalid or denied launches as a blocking state without an editor action', () => {
+        renderWithIntl(
+            <KidscodeWorkspaceBlockingState
+                workspaceState={KidscodeWorkspaceState.ACCESS_BLOCKED}
+                onAction={jest.fn()}
+            />
+        );
+
+        expect(screen.getByRole('alertdialog', {name: 'Workspace Access Blocked'})).toBeTruthy();
+        expect(screen.queryByRole('button')).toBeNull();
     });
 
     test('derives dirty and updating states without inventing a saved state', () => {

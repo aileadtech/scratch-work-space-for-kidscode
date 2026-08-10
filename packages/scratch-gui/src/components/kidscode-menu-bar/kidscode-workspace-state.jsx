@@ -49,18 +49,38 @@ const messages = defineMessages({
     },
     sessionExpiredTitle: {
         id: 'kidscode.workspaceState.sessionExpiredTitle',
-        defaultMessage: 'Session expired',
+        defaultMessage: 'Session Expired',
         description: 'Heading shown when a Kidscode workspace session has expired'
     },
     sessionExpiredDescription: {
         id: 'kidscode.workspaceState.sessionExpiredDescription',
-        defaultMessage: 'Your Kidscode session has expired. Return to Kidscode to sign in again.',
+        defaultMessage: 'This workspace session has expired. Return to Kidscode and open the project again.',
         description: 'Explanation shown when a Kidscode workspace session has expired'
     },
     sessionExpiredAction: {
         id: 'kidscode.workspaceState.sessionExpiredAction',
         defaultMessage: 'Return to Kidscode',
         description: 'Button shown when a Kidscode workspace session has expired'
+    },
+    launchConnectionLostTitle: {
+        id: 'kidscode.workspaceState.launchConnectionLostTitle',
+        defaultMessage: 'Connection Lost',
+        description: 'Heading shown when a Kidscode workspace launch cannot connect'
+    },
+    launchConnectionLostDescription: {
+        id: 'kidscode.workspaceState.launchConnectionLostDescription',
+        defaultMessage: 'The Workspace could not connect to Kidscode. Check your connection and try again.',
+        description: 'Explanation shown when a Kidscode workspace launch cannot connect'
+    },
+    accessBlockedTitle: {
+        id: 'kidscode.workspaceState.accessBlockedTitle',
+        defaultMessage: 'Workspace Access Blocked',
+        description: 'Heading shown when a Kidscode workspace launch is invalid or denied'
+    },
+    accessBlockedDescription: {
+        id: 'kidscode.workspaceState.accessBlockedDescription',
+        defaultMessage: 'This workspace launch is invalid or does not have access to the requested project.',
+        description: 'Explanation shown when a Kidscode workspace launch is invalid or denied'
     },
     corruptedProjectTitle: {
         id: 'kidscode.workspaceState.corruptedProjectTitle',
@@ -171,6 +191,15 @@ const blockingStateMessages = {
         description: messages.sessionExpiredDescription,
         action: messages.sessionExpiredAction
     },
+    [KidscodeWorkspaceState.LAUNCH_CONNECTION_LOST]: {
+        title: messages.launchConnectionLostTitle,
+        description: messages.launchConnectionLostDescription,
+        action: messages.tryAgain
+    },
+    [KidscodeWorkspaceState.ACCESS_BLOCKED]: {
+        title: messages.accessBlockedTitle,
+        description: messages.accessBlockedDescription
+    },
     [KidscodeWorkspaceState.CORRUPTED_PROJECT]: {
         title: messages.corruptedProjectTitle,
         description: messages.corruptedProjectDescription,
@@ -213,7 +242,7 @@ const KidscodeWorkspaceBlockingState = ({isRtl, workspaceState, onAction}) => {
                 <p>
                     <FormattedMessage {...stateMessages.description} />
                 </p>
-                {onAction && (
+                {onAction && stateMessages.action && (
                     <button
                         className={styles.blockingAction}
                         type="button"

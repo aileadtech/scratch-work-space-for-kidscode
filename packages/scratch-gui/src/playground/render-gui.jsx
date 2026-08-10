@@ -7,16 +7,13 @@ import GUI from '../containers/gui.jsx';
 import HashParserHOC from '../lib/hash-parser-hoc.jsx';
 import log from '../lib/log.js';
 import {PLATFORM} from '../lib/platform.js';
-import {KidscodeWorkspaceStates} from '../lib/kidscode-workspace-state';
+import KidscodeWorkspaceLaunchHOC from '../lib/kidscode-workspace-launch-hoc.jsx';
+import {createDevelopmentMockLaunchResolver} from '../lib/kidscode-workspace-launch';
 
 const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
 };
 
-// Phase 2 placeholders -- later phases replace these values and callback seams with
-// secure-launch data, persistence, submission, and navigation handlers.
-const KIDSCODE_PLACEHOLDER_PROJECT_TITLE = 'Untitled Project';
-const KIDSCODE_PLACEHOLDER_STUDENT_NAME = 'Student';
 const onBackToKidscode = () => {};
 const onDeleteDraft = () => {};
 const onDuplicateProject = () => {};
@@ -25,6 +22,8 @@ const onReturnToLesson = () => {};
 const onReturnToMyScratchProjects = () => {};
 const onSaveProject = () => {};
 const onSubmitProject = () => {};
+const unavailableLaunchResolver = () =>
+    Promise.reject(new Error('The Workspace launch resolver is not configured.'));
 
 const handleTelemetryModalCancel = () => {
     log('User canceled telemetry modal');
@@ -49,20 +48,18 @@ export default appTarget => {
     // note that redux's 'compose' function is just being used as a general utility to make
     // the hierarchy of HOC constructor calls clearer here; it has nothing to do with redux's
     // ability to compose reducers.
-    const WrappedGui = compose(
+    const WrappedGui = KidscodeWorkspaceLaunchHOC(compose(
         AppStateHOC,
         HashParserHOC
-    )(GUI);
+    )(GUI));
+
+    const launchResolver = process.env.NODE_ENV === 'production' ?
+        unavailableLaunchResolver :
+        createDevelopmentMockLaunchResolver();
 
     // TODO a hack for testing the backpack, allow backpack host to be set by url param
     const backpackHostMatches = window.location.href.match(/[?&]backpack_host=([^&]*)&?/);
     const backpackHost = backpackHostMatches ? backpackHostMatches[1] : null;
-
-    // Allows each controlled Phase 2 workspace state to be inspected locally
-    // without simulating persistence, authentication, or network behaviour.
-    const requestedWorkspaceState = new URLSearchParams(window.location.search).get('workspaceState');
-    const kidscodeWorkspaceState = KidscodeWorkspaceStates.includes(requestedWorkspaceState) ?
-        requestedWorkspaceState : null;
 
     const scratchDesktopMatches = window.location.href.match(/[?&]isScratchDesktop=([^&]+)/);
     let simulateScratchDesktop;
@@ -89,10 +86,7 @@ export default appTarget => {
         simulateScratchDesktop ? (
             <WrappedGui
                 canEditTitle={false}
-                kidscodeProjectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
-                kidscodeStudentName={KIDSCODE_PLACEHOLDER_STUDENT_NAME}
-                kidscodeWorkspaceState={kidscodeWorkspaceState}
-                projectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
+                launchResolver={launchResolver}
                 platform={PLATFORM.DESKTOP}
                 showTelemetryModal
                 canSave={false}
@@ -111,10 +105,7 @@ export default appTarget => {
         ) : (
             <WrappedGui
                 canEditTitle={false}
-                kidscodeProjectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
-                kidscodeStudentName={KIDSCODE_PLACEHOLDER_STUDENT_NAME}
-                kidscodeWorkspaceState={kidscodeWorkspaceState}
-                projectTitle={KIDSCODE_PLACEHOLDER_PROJECT_TITLE}
+                launchResolver={launchResolver}
                 backpackVisible
                 showComingSoon
                 backpackHost={backpackHost}
