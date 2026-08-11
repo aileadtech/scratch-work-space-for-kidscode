@@ -110,6 +110,7 @@ Prettier (currently `task-herder`), run `npm run format` in addition to lint.
 - After adding or changing messages, run `npm run i18n:src` to update the translation source file.
 - Integration tests (`test/integration/`) require a browser environment via Jest + jsdom; they are slow and
   should not be run unnecessarily. Smoke tests (`test/smoke/`) require a live server.
+- For Kidscode Workspace feature work, read [`docs/AGENT-START-HERE.md`](docs/AGENT-START-HERE.md) first.
 
 ### scratch-vm specifics
 
