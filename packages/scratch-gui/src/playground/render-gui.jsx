@@ -9,6 +9,12 @@ import log from '../lib/log.js';
 import {PLATFORM} from '../lib/platform.js';
 import KidscodeWorkspaceLaunchHOC from '../lib/kidscode-workspace-launch-hoc.jsx';
 import {createDevelopmentMockLaunchResolver} from '../lib/kidscode-workspace-launch';
+import KidscodeWorkspacePersistenceHOC
+    from '../lib/kidscode-workspace-persistence/kidscode-workspace-persistence-hoc.jsx';
+import {createUnavailableKidscodeWorkspacePersistenceAdapter}
+    from '../lib/kidscode-workspace-persistence/kidscode-workspace-persistence-contract';
+import {createKidscodeDevelopmentPersistenceAdapter}
+    from '../lib/kidscode-workspace-persistence/kidscode-development-persistence-adapter';
 
 const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
@@ -50,12 +56,19 @@ export default appTarget => {
     // ability to compose reducers.
     const WrappedGui = KidscodeWorkspaceLaunchHOC(compose(
         AppStateHOC,
-        HashParserHOC
+        HashParserHOC,
+        KidscodeWorkspacePersistenceHOC
     )(GUI));
 
     const launchResolver = process.env.NODE_ENV === 'production' ?
         unavailableLaunchResolver :
         createDevelopmentMockLaunchResolver();
+
+    // The Laravel persistence adapter does not exist yet; production must fail closed rather than
+    // silently falling back to the development-only IndexedDB mock store.
+    const persistenceAdapter = process.env.NODE_ENV === 'production' ?
+        createUnavailableKidscodeWorkspacePersistenceAdapter() :
+        createKidscodeDevelopmentPersistenceAdapter();
 
     // TODO a hack for testing the backpack, allow backpack host to be set by url param
     const backpackHostMatches = window.location.href.match(/[?&]backpack_host=([^&]*)&?/);
@@ -86,6 +99,7 @@ export default appTarget => {
         simulateScratchDesktop ? (
             <WrappedGui
                 canEditTitle={false}
+                kidscodeWorkspacePersistenceAdapter={persistenceAdapter}
                 launchResolver={launchResolver}
                 platform={PLATFORM.DESKTOP}
                 showTelemetryModal
@@ -105,6 +119,7 @@ export default appTarget => {
         ) : (
             <WrappedGui
                 canEditTitle={false}
+                kidscodeWorkspacePersistenceAdapter={persistenceAdapter}
                 launchResolver={launchResolver}
                 backpackVisible
                 showComingSoon

@@ -49,6 +49,15 @@ const createSuccessFixture = ({
     }
 });
 
+// Reserved development-only project_ref values recognised by the development persistence
+// adapter to simulate a save that always fails and a saved project that fails to load. Kept
+// here (next to the other development fixtures) so the adapter has a single source for them
+// instead of duplicating magic strings.
+const KidscodeDevelopmentPersistenceFixtureProjectRef = Object.freeze({
+    SAVE_FAILURE: 'SCR-PROJ-DEVFAILSAVE',
+    CORRUPTED_PROJECT: 'SCR-PROJ-DEVCORRUPT'
+});
+
 const lessonContext = {
     assignment: {
         assignment_ref: 'SCR-ASG-A1B2C3',
@@ -105,6 +114,26 @@ const developmentFixtures = {
         projectTitle: 'Untitled Scratch Project',
         projectType: 'independent',
         sessionRef: 'SCR-SESSION-NI78K'
+    }),
+    'demo-save-failure': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.EXISTING_INDEPENDENT,
+        projectRef: KidscodeDevelopmentPersistenceFixtureProjectRef.SAVE_FAILURE,
+        projectTitle: 'Save Failure Demo',
+        projectType: 'independent',
+        sessionRef: 'SCR-SESSION-DEVFAILSAVE'
+    }),
+    'demo-corrupted-project': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.EXISTING_INDEPENDENT,
+        projectRef: KidscodeDevelopmentPersistenceFixtureProjectRef.CORRUPTED_PROJECT,
+        projectTitle: 'Corrupted Project Demo',
+        projectType: 'independent',
+        sessionRef: 'SCR-SESSION-DEVCORRUPT'
     }),
     'demo-expired': {
         success: false,
@@ -214,6 +243,7 @@ const createDevelopmentMockLaunchResolver = ({delay = 500, environment = process
 };
 
 export {
+    KidscodeDevelopmentPersistenceFixtureProjectRef,
     KidscodeLaunchErrorCode,
     KidscodeLaunchType,
     KidscodeLaunchTypes,
