@@ -5,10 +5,9 @@ bottom. It is not a historical changelog; keep it describing only the current st
 
 ## Repository state
 
-- Verified main HEAD before Phase 6 branch: `6f494856f8b1c199e683cc51a190f062dec58be1`
-- Active feature branch: `phase6/submission-tutor-review`
-- Current completed phases on main: 1–5
-- Phase 6 state: implemented and verified on the feature branch; uncommitted, unmerged, awaiting human review
+- Current main HEAD: `ec8ddaca657aa53a0d76d53fba58c2ee2fb7a6b8`
+- Current completed phases on main: 1–6
+- Next Workspace phase: Phase 7 — Navigation + Recovery
 
 ## Phase status
 
@@ -19,8 +18,8 @@ bottom. It is not a historical changelog; keep it describing only the current st
 | 3 | Secure Launch / Project Context | COMPLETE |
 | 4 | Save / Load / Continue / Autosave | COMPLETE |
 | 5 | Project Management | COMPLETE |
-| 6 | Submission + Tutor Review | READY FOR HUMAN REVIEW (FEATURE BRANCH) |
-| 7 | Navigation / Recovery | NOT STARTED |
+| 6 | Submission + Tutor Review | COMPLETE |
+| 7 | Navigation + Recovery | NOT STARTED / NEXT |
 | 8 | Production / Compliance | NOT STARTED |
 | 9 | Final Verification | NOT STARTED |
 
@@ -43,15 +42,12 @@ optimistic `version_ref`; starter/blank/corrupted-project handling; production f
 with permanent session blocking; shared development store and development-only title hydration; production fails
 closed.
 
-**Phase 6 feature branch** — Submit/Resubmit captures the current editor `.sb3`, including unsaved changes, into
-new immutable submitted-version records and atomically advances the separate working copy to the same bytes/new
-working version so changes-requested reopen cannot lose the submitted edit; visible `submitted`,
-`changes_requested`, and `approved` states; persisted
-tutor feedback/history; tutor `review` launch loads only the exact submitted version and allows Scratch
-inspection/run/stop while blocking Save/autosave, student Submit, and all project-management mutations; review
-actions require the exact latest submitted-version identity. Submitted/approved student saves are blocked;
-changes-requested working projects can Save/autosave and Resubmit. Development fixtures cover success and required
-failure paths; production fails closed.
+**Phase 6** — Submit captures the current Scratch editor state, including unsaved changes, into an immutable
+submission snapshot and safely advances the separate working project to the submitted state; visible Submitted,
+Changes Requested, and Approved states; Tutor Review Mode loads the exact submitted `.sb3` while blocking
+Save/autosave and student-project mutations; Approve and Request Changes with feedback; correction and Resubmit
+create a new immutable submission while previous versions remain unchanged; submission/review history is retained;
+autosave/Submit concurrency is protected.
 
 ## Current architecture
 
@@ -111,16 +107,15 @@ falls back to development data.
 - **Phase 3**: Laravel launch resolver, now including `role`, `review`, and `review_feedback` where applicable.
 - **Phase 4**: Laravel working-project file load/save adapter.
 - **Phase 5**: Laravel rename/duplicate/delete adapter.
-- **Phase 6**: Laravel submit, exact submitted-file load, approve, and request-changes adapter/endpoints, including
-  immutable version storage, authorization, concurrency, and review-history enforcement.
+- **Phase 6**: Laravel Submit endpoint/adapter; exact submitted-file load for review; Tutor review
+  authorization/session; Approve; Request Changes/feedback; immutable submission/version/history persistence.
 
 None of these endpoints exists yet. The full proposed request/response shapes are in
 `docs/SHARED-API-CONTRACT.md`.
 
-## Next Workspace action
+## Next Workspace phase
 
-Human review and closure of Phase 6 on `phase6/submission-tutor-review`. Phase 7 has not started and must not begin
-as part of this feature branch.
+Phase 7 — Navigation + Recovery. Not started.
 
 ## Update rule
 
@@ -131,7 +126,6 @@ After every merged Workspace phase, update this file:
 - "What works now"
 - "Current architecture" (only if it changed)
 - "Backend integration still missing"
-- "Next Workspace action"
+- "Next Workspace phase"
 
-Keep this file a snapshot of *now*, not a log of how it got here. After Phase 6 is eventually committed and merged,
-replace the pre-branch main HEAD and feature-branch wording with the resulting main HEAD and merged status.
+Keep this file a snapshot of *now*, not a log of how it got here.
