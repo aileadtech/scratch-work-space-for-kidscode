@@ -106,6 +106,26 @@ const messages = defineMessages({
         id: 'kidscode.workspaceState.projectDeletedDescription',
         defaultMessage: 'This draft has been deleted and can no longer be edited or saved.',
         description: 'Explanation shown after a Kidscode project draft has been deleted'
+    },
+    reviewAccessBlockedTitle: {
+        id: 'kidscode.workspaceState.reviewAccessBlockedTitle',
+        defaultMessage: 'Submitted project unavailable',
+        description: 'Heading shown when the authorised submitted project cannot be loaded for review'
+    },
+    reviewAccessBlockedDescription: {
+        id: 'kidscode.workspaceState.reviewAccessBlockedDescription',
+        defaultMessage: 'This submitted version is unavailable or this review session does not have access to it.',
+        description: 'Explanation shown when a submitted project cannot be loaded for review'
+    },
+    corruptedSubmissionTitle: {
+        id: 'kidscode.workspaceState.corruptedSubmissionTitle',
+        defaultMessage: 'Submitted project could not be opened',
+        description: 'Heading shown when the exact submitted project file is corrupted'
+    },
+    corruptedSubmissionDescription: {
+        id: 'kidscode.workspaceState.corruptedSubmissionDescription',
+        defaultMessage: 'The submitted version could not be opened safely. The working project was not loaded instead.',
+        description: 'Explanation shown when a submitted project file is corrupted'
     }
 });
 
@@ -218,6 +238,14 @@ const blockingStateMessages = {
     [KidscodeWorkspaceState.PROJECT_DELETED]: {
         title: messages.projectDeletedTitle,
         description: messages.projectDeletedDescription
+    },
+    [KidscodeWorkspaceState.REVIEW_ACCESS_BLOCKED]: {
+        title: messages.reviewAccessBlockedTitle,
+        description: messages.reviewAccessBlockedDescription
+    },
+    [KidscodeWorkspaceState.CORRUPTED_SUBMISSION]: {
+        title: messages.corruptedSubmissionTitle,
+        description: messages.corruptedSubmissionDescription
     }
 };
 

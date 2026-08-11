@@ -21,6 +21,12 @@ import {createUnavailableKidscodeWorkspaceProjectManagementAdapter}
     from '../lib/kidscode-workspace-project-management/kidscode-workspace-project-management-contract';
 import {createKidscodeDevelopmentProjectManagementAdapter}
     from '../lib/kidscode-workspace-project-management/kidscode-development-project-management-adapter';
+import KidscodeWorkspaceSubmissionReviewHOC
+    from '../lib/kidscode-workspace-submission-review/kidscode-workspace-submission-review-hoc.jsx';
+import {createUnavailableKidscodeWorkspaceSubmissionReviewAdapter}
+    from '../lib/kidscode-workspace-submission-review/kidscode-workspace-submission-review-contract';
+import {createKidscodeDevelopmentSubmissionReviewAdapter}
+    from '../lib/kidscode-workspace-submission-review/kidscode-development-submission-review-adapter';
 
 const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
@@ -30,7 +36,6 @@ const onBackToKidscode = () => {};
 const onReturnToLesson = () => {};
 const onReturnToMyScratchProjects = () => {};
 const onSaveProject = () => {};
-const onSubmitProject = () => {};
 const unavailableLaunchResolver = () =>
     Promise.reject(new Error('The Workspace launch resolver is not configured.'));
 
@@ -61,6 +66,7 @@ export default appTarget => {
         AppStateHOC,
         HashParserHOC,
         KidscodeWorkspaceProjectManagementHOC,
+        KidscodeWorkspaceSubmissionReviewHOC,
         KidscodeWorkspacePersistenceHOC
     )(GUI));
 
@@ -79,6 +85,10 @@ export default appTarget => {
     const projectManagementAdapter = process.env.NODE_ENV === 'production' ?
         createUnavailableKidscodeWorkspaceProjectManagementAdapter() :
         createKidscodeDevelopmentProjectManagementAdapter();
+
+    const submissionReviewAdapter = process.env.NODE_ENV === 'production' ?
+        createUnavailableKidscodeWorkspaceSubmissionReviewAdapter() :
+        createKidscodeDevelopmentSubmissionReviewAdapter();
 
     // TODO a hack for testing the backpack, allow backpack host to be set by url param
     const backpackHostMatches = window.location.href.match(/[?&]backpack_host=([^&]*)&?/);
@@ -111,6 +121,7 @@ export default appTarget => {
                 canEditTitle={false}
                 kidscodeWorkspacePersistenceAdapter={persistenceAdapter}
                 kidscodeWorkspaceProjectManagementAdapter={projectManagementAdapter}
+                kidscodeWorkspaceSubmissionReviewAdapter={submissionReviewAdapter}
                 launchResolver={launchResolver}
                 platform={PLATFORM.DESKTOP}
                 showTelemetryModal
@@ -119,7 +130,6 @@ export default appTarget => {
                 onReturnToLesson={onReturnToLesson}
                 onReturnToMyScratchProjects={onReturnToMyScratchProjects}
                 onSaveProject={onSaveProject}
-                onSubmitProject={onSubmitProject}
                 onTelemetryModalCancel={handleTelemetryModalCancel}
                 onTelemetryModalOptIn={handleTelemetryModalOptIn}
                 onTelemetryModalOptOut={handleTelemetryModalOptOut}
@@ -129,6 +139,7 @@ export default appTarget => {
                 canEditTitle={false}
                 kidscodeWorkspacePersistenceAdapter={persistenceAdapter}
                 kidscodeWorkspaceProjectManagementAdapter={projectManagementAdapter}
+                kidscodeWorkspaceSubmissionReviewAdapter={submissionReviewAdapter}
                 launchResolver={launchResolver}
                 backpackVisible
                 showComingSoon
@@ -139,7 +150,6 @@ export default appTarget => {
                 onReturnToLesson={onReturnToLesson}
                 onReturnToMyScratchProjects={onReturnToMyScratchProjects}
                 onSaveProject={onSaveProject}
-                onSubmitProject={onSubmitProject}
             />
         )
     );

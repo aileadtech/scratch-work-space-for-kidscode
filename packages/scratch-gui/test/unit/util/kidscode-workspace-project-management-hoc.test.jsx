@@ -238,4 +238,18 @@ describe('KidscodeWorkspaceProjectManagementHOC', () => {
         resolveFirst({success: true, data: {project_ref: session.project.project_ref, title: 'First', updated_at: 'x'}});
         await first;
     });
+
+    test('review mode rejects every project-management mutation before reaching the adapter', async () => {
+        const session = buildSession({launch_type: 'review'});
+        const adapter = createAdapter();
+        mountComponent({session, adapter});
+
+        await expect(global.__lastProbeProps.onRenameProject('Tutor edit')).rejects.toThrow('review mode');
+        await expect(global.__lastProbeProps.onDuplicateProject()).rejects.toThrow('review mode');
+        await expect(global.__lastProbeProps.onDeleteDraft()).rejects.toThrow('review mode');
+        expect(adapter.renameProject).not.toHaveBeenCalled();
+        expect(adapter.duplicateProject).not.toHaveBeenCalled();
+        expect(adapter.deleteDraftProject).not.toHaveBeenCalled();
+        expect(vm.saveProjectSb3).not.toHaveBeenCalled();
+    });
 });

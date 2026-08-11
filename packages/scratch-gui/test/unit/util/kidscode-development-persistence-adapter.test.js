@@ -202,4 +202,43 @@ describe('Kidscode development persistence adapter', () => {
             expect(store.records.get('SCR-PROJ-DELETED').versionRef).toBe('SCR-DEV-VER-1');
         });
     });
+
+    test.each(['submitted', 'approved'])('saveProject rejects a %s project', async status => {
+        const store = createInMemoryStore();
+        store.records.set('SCR-PROJ-READONLY', {
+            projectRef: 'SCR-PROJ-READONLY',
+            status,
+            versionRef: 'SCR-DEV-VER-1'
+        });
+        const adapter = createAdapter(store);
+
+        await expect(adapter.saveProject({
+            projectRef: 'SCR-PROJ-READONLY',
+            workspaceAccessToken,
+            sb3: {},
+            baseVersionRef: 'SCR-DEV-VER-1',
+            reason: KidscodeSaveReason.MANUAL
+        })).rejects.toThrow('cannot be saved');
+    });
+
+    test('saveProject preserves changes_requested while corrections are saved', async () => {
+        const store = createInMemoryStore();
+        store.records.set('SCR-PROJ-CORRECTIONS', {
+            projectRef: 'SCR-PROJ-CORRECTIONS',
+            status: 'changes_requested',
+            versionRef: 'SCR-DEV-VER-1',
+            versionNumber: 1
+        });
+        const adapter = createAdapter(store);
+        const result = await adapter.saveProject({
+            projectRef: 'SCR-PROJ-CORRECTIONS',
+            workspaceAccessToken,
+            sb3: {},
+            baseVersionRef: 'SCR-DEV-VER-1',
+            reason: KidscodeSaveReason.AUTOSAVE
+        });
+
+        expect(result.data.status).toBe('changes_requested');
+        expect(store.records.get('SCR-PROJ-CORRECTIONS').status).toBe('changes_requested');
+    });
 });

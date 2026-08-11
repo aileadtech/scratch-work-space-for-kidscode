@@ -6,6 +6,7 @@ import VM from '@scratch/scratch-vm';
 import {useKidscodeWorkspaceSession} from '../../contexts/kidscode-workspace-session-context.jsx';
 import {setProjectTitle} from '../../reducers/project-title';
 import {KidscodeWorkspaceState} from '../kidscode-workspace-state';
+import {KidscodeLaunchType} from '../kidscode-workspace-launch';
 import {createUnavailableKidscodeWorkspaceProjectManagementAdapter}
     from './kidscode-workspace-project-management-contract';
 import useKidscodeProjectManagementController from './use-kidscode-project-management-controller';
@@ -47,6 +48,7 @@ const KidscodeWorkspaceProjectManagementHOC = WrappedComponent => {
                 adapter,
                 session,
                 projectTitle: confirmedProjectTitle,
+                readOnly: Boolean(session && session.launch_type === KidscodeLaunchType.REVIEW),
                 vm,
                 onProjectRenamed: handleProjectRenamed
             });

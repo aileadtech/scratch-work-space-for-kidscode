@@ -407,3 +407,167 @@ remains the sole authority for project title once connected, since a real backen
 source of truth and there is no separate client-side store for it to disagree with. The resolver never runs in
 production (`render-gui.jsx` always selects a rejecting resolver there), so this has no production code path at
 all.
+
+## Workspace Submission and Tutor Review (Phase 6)
+
+Phase 6 adds a submission/review boundary without changing the Phase 3 launch, Phase 4 persistence, or Phase 5
+project-management request shapes. A submission is an immutable `.sb3` snapshot with its own `submission_ref` and
+`submitted_version_ref`; project status alone is never sufficient to identify what a tutor reviewed.
+
+### Adapter interface
+
+```text
+submitProject({projectRef, workspaceAccessToken, sb3, baseVersionRef}) -> Promise<SubmitResult>
+loadSubmission({submissionRef, workspaceAccessToken}) -> Promise<SubmissionFile>
+approveSubmission({submissionRef, submittedVersionRef, workspaceAccessToken}) -> Promise<ReviewResult>
+requestChanges({submissionRef, submittedVersionRef, workspaceAccessToken, feedback}) -> Promise<ReviewResult>
+```
+
+Every operation requires a short-lived Workspace access token. Neither `project_ref` nor `submission_ref` is
+authorization by itself. Review actions also require the exact `submittedVersionRef` that was loaded, and the
+backend must reject stale/non-latest submissions or submissions that are no longer `submitted`.
+
+`submitProject` receives the bytes returned by `vm.saveProjectSb3()` at click time, including unsaved editor
+changes. `baseVersionRef` is the latest Phase 4 working-project version known to the Workspace and provides the
+same optimistic-concurrency protection as Save. A successful submit atomically creates a new immutable submission
+and advances the separate working project to the same bytes under a new working `version_ref`; resubmit never
+updates or replaces an older submission record. This guarantees that a later changes-requested reopen starts from
+what the student actually submitted, even when the edit was unsaved before Submit.
+
+### Status and mutation rules
+
+The product statuses are `draft`, `submitted`, `changes_requested`, and `approved`.
+
+| Context/status | Save/autosave | Submit | Rename | Duplicate | Delete |
+| --- | --- | --- | --- | --- | --- |
+| Student `draft` | allowed | Submit | allowed | allowed | allowed |
+| Student `submitted` | blocked | blocked | blocked | allowed | blocked |
+| Student `changes_requested` | allowed | Resubmit | blocked | allowed | blocked |
+| Student `approved` | blocked | blocked | blocked | allowed | blocked |
+| Tutor review mode | blocked | hidden | blocked | blocked | blocked |
+
+The student `submitted` rule is conservative: editor gestures may remain inspectable in the current page, but
+manual Save, autosave, and another submit cannot persist or replace anything until a review result arrives.
+`changes_requested` re-enables working-project Save/autosave and creates a new immutable version on Resubmit.
+Phase 5's always-independent Duplicate rule remains available to students, but every project-management mutation is
+blocked in tutor review mode.
+
+### SubmitResult
+
+```json
+{
+  "success": true,
+  "data": {
+    "project_ref": "SCR-PROJ-X82AB",
+    "submission_ref": "SCR-SUB-ABC123",
+    "submitted_version_ref": "SCR-SUB-VER-ABC123",
+    "working_version_ref": "SCR-VER-DEF456",
+    "submitted_at": "2026-08-11T18:30:00Z",
+    "status": "submitted"
+  }
+}
+```
+
+### SubmissionFile
+
+The file operation returns the exact submitted `.sb3` plus authoritative submission metadata to the adapter. The
+Workspace verifies all three identifiers against its review launch context before loading the bytes into the VM:
+
+```text
+project_ref
+submission_ref
+submitted_version_ref
+submitted_at
+status
+feedback
+sb3
+```
+
+Missing, inaccessible, mismatched, or corrupted submitted content blocks review. The Workspace must never fall
+back to the latest working-project file.
+
+### ReviewResult
+
+```json
+{
+  "success": true,
+  "data": {
+    "project_ref": "SCR-PROJ-X82AB",
+    "submission_ref": "SCR-SUB-ABC123",
+    "submitted_version_ref": "SCR-SUB-VER-ABC123",
+    "status": "changes_requested",
+    "feedback": "Please add a second step.",
+    "reviewed_at": "2026-08-11T18:45:00Z"
+  }
+}
+```
+
+Approval uses the same shape with `status: "approved"` and `feedback: null`. Request Changes requires feedback
+after whitespace trimming. Review history is append-only; the latest feedback is also exposed through the next
+student launch response as `review_feedback`.
+
+### Review launch contract
+
+Phase 3's four student launch types remain unchanged. Phase 6 adds `launch_type: "review"`, requires
+`role: "tutor"`, and requires this additional exact-version context in the successful launch response:
+
+```json
+{
+  "review": {
+    "submission_ref": "SCR-SUB-ABC123",
+    "submitted_version_ref": "SCR-SUB-VER-ABC123",
+    "submitted_at": "2026-08-11T18:30:00Z"
+  }
+}
+```
+
+Student launch responses include `role: "student"`. For `changes_requested`, `review_feedback` contains
+`submission_ref`, `submitted_version_ref`, `feedback`, and `reviewed_at`. Tokens remain runtime-only and are never
+part of a project or submission record.
+
+### Future Laravel HTTP endpoints
+
+**`POST /api/scratch/workspace/projects/{project_ref}/submit`**
+
+- Authentication: `workspace_access_token`.
+- Request: `multipart/form-data` fields `project_file` and `base_version_ref`.
+- Successful response: `SubmitResult` above.
+- Backend creates a new immutable submission/version, advances the mutable working copy and its version to the
+  submitted bytes, and moves the project to `submitted` in one transaction.
+
+**`GET /api/scratch/workspace/submissions/{submission_ref}/file`**
+
+- Authentication: a short-lived tutor/review Workspace access token.
+- Returns the exact authorized submitted `.sb3` and authoritative submission metadata.
+
+**`POST /api/scratch/workspace/submissions/{submission_ref}/approve`**
+
+- Authentication: a short-lived tutor/review Workspace access token.
+- Request includes `submitted_version_ref` so the backend can reject a stale review.
+- Successful result has `status: "approved"`.
+
+**`POST /api/scratch/workspace/submissions/{submission_ref}/request-changes`**
+
+- Authentication: a short-lived tutor/review Workspace access token.
+- Request: `{"submitted_version_ref": "SCR-SUB-VER-ABC123", "feedback": "Please add a second step."}`.
+- Successful result has `status: "changes_requested"` and persists both feedback and review history.
+
+If Laravel conventions require different HTTP shapes, update this contract before changing the Workspace adapter.
+
+### Development adapter and fixtures
+
+`createKidscodeDevelopmentSubmissionReviewAdapter` implements the same four operations in the existing
+development-only IndexedDB database. Submission creation uses one transaction spanning the separate `projects` and
+`submissions` stores: `add` creates the immutable submission while the working record receives copied submitted
+bytes and its next `SCR-DEV-VER-*` identity. An existing `submission_ref` cannot be overwritten, and a stale
+Save/autosave version cannot overwrite a successful Submit. Stored binary buffers are copied on submit and load.
+Project metadata retains `latestSubmissionRef`, the submission counter, current status, and latest review feedback;
+each submission retains its identity, bytes, status, feedback, review timestamp, and append-only review history.
+
+Development launch fixtures cover student submit failure, submitted/changes-requested/approved student states,
+exact/latest tutor review, unavailable and corrupted submitted files, review access denial, approve failure, and
+request-changes failure. Fixture selection stays inside the development launch/submission adapters.
+
+The development factory throws in production. Production selects
+`createUnavailableKidscodeWorkspaceSubmissionReviewAdapter`, whose four operations always reject. There is no
+real-API-failure-to-IndexedDB fallback.

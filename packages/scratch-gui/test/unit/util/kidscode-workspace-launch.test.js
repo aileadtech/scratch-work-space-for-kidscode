@@ -12,13 +12,16 @@ import {
 // relying on a real IndexedDB read failing.
 const createInMemoryStore = () => {
     const records = new Map();
+    const submissions = new Map();
     return {
         getProject: projectRef => Promise.resolve(records.get(projectRef)),
+        getSubmission: submissionRef => Promise.resolve(submissions.get(submissionRef)),
         putProject: record => {
             records.set(record.projectRef, Object.assign({}, records.get(record.projectRef), record));
             return Promise.resolve();
         },
-        records
+        records,
+        submissions
     };
 };
 
@@ -93,6 +96,7 @@ describe('Kidscode workspace launch resolver', () => {
                 session_ref: 'SCR-SESSION-TEST',
                 expires_at: '2099-08-10T15:00:00Z',
                 workspace_access_token: 'TEST_WORKSPACE_TOKEN',
+                role: 'student',
                 student: {display_name: 'Adewale'},
                 project: {
                     project_ref: 'SCR-PROJ-TEST',
@@ -131,6 +135,52 @@ describe('Kidscode workspace launch resolver', () => {
     test('development mock cannot be created in production', () => {
         expect(() => createDevelopmentMockLaunchResolver({environment: 'production'}))
             .toThrow('cannot run in production');
+    });
+
+    test('validates review launch context without changing the four student launch types', async () => {
+        const response = validateKidscodeLaunchResponse(await resolveDevelopmentLaunch('demo-review-submitted'));
+
+        expect(response.success).toBe(true);
+        expect(response.data.role).toBe('tutor');
+        expect(response.data.launch_type).toBe(KidscodeLaunchType.REVIEW);
+        expect(response.data.review).toEqual({
+            submission_ref: 'SCR-SUB-DEV-REVIEW-FIXTURE',
+            submitted_version_ref: 'SCR-SUB-VER-DEV-REVIEW-FIXTURE',
+            submitted_at: '2026-08-11T12:00:00Z'
+        });
+    });
+
+    test('rejects a review launch with no exact submitted version context', async () => {
+        const fixture = await resolveDevelopmentLaunch('demo-review-submitted');
+        const response = validateKidscodeLaunchResponse({
+            success: true,
+            data: Object.assign({}, fixture.data, {review: null})
+        });
+
+        expect(response.success).toBe(false);
+        expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+    });
+
+    test('hydrates review-latest with the exact newest immutable submission record', async () => {
+        const store = createInMemoryStore();
+        store.records.set('SCR-PROJ-X82AB', {
+            projectRef: 'SCR-PROJ-X82AB',
+            status: 'submitted',
+            latestSubmissionRef: 'SCR-DEV-SUB-SCR-PROJ-X82AB-2'
+        });
+        store.submissions.set('SCR-DEV-SUB-SCR-PROJ-X82AB-2', {
+            submissionRef: 'SCR-DEV-SUB-SCR-PROJ-X82AB-2',
+            submittedVersionRef: 'SCR-DEV-SUB-VER-SCR-PROJ-X82AB-2',
+            submittedAt: '2026-08-11T13:00:00Z'
+        });
+        const resolver = createDevelopmentMockLaunchResolver({delay: 0, environment: 'test', store});
+
+        const response = await resolver('demo-review-latest');
+        expect(response.data.review).toEqual({
+            submission_ref: 'SCR-DEV-SUB-SCR-PROJ-X82AB-2',
+            submitted_version_ref: 'SCR-DEV-SUB-VER-SCR-PROJ-X82AB-2',
+            submitted_at: '2026-08-11T13:00:00Z'
+        });
     });
 
     describe('development title hydration from the project-management store', () => {

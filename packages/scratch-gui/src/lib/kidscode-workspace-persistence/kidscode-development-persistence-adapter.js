@@ -1,6 +1,8 @@
 import {KidscodeDevelopmentPersistenceFixtureProjectRef, KidscodeLaunchType} from '../kidscode-workspace-launch';
-import {KidscodeProjectSource} from './kidscode-workspace-persistence-contract';
+import {KidscodeProjectStatus}
+    from '../kidscode-workspace-project-management/kidscode-workspace-project-management-contract';
 import {createIndexedDbProjectStore} from './kidscode-development-project-store';
+import {KidscodeProjectSource} from './kidscode-workspace-persistence-contract';
 import {buildKidscodeWorkspaceStarterProject} from './kidscode-workspace-starter-project';
 
 const DEV_VERSION_PREFIX = 'SCR-DEV-VER-';
@@ -32,6 +34,14 @@ const requireNotDeleted = record => {
     if (record && record.deletedAt) {
         throw new Error('This project has been deleted and can no longer be saved.');
     }
+};
+
+const requireWritableStatus = record => {
+    const status = (record && record.status) || KidscodeProjectStatus.DRAFT;
+    if (![KidscodeProjectStatus.DRAFT, KidscodeProjectStatus.CHANGES_REQUESTED].includes(status)) {
+        throw new Error('Submitted and approved projects cannot be saved.');
+    }
+    return status;
 };
 
 /**
@@ -111,6 +121,7 @@ const createKidscodeDevelopmentPersistenceAdapter = ({
 
             return Promise.resolve(store.getProject(projectRef)).then(existingRecord => {
                 requireNotDeleted(existingRecord);
+                const status = requireWritableStatus(existingRecord);
 
                 const versionNumber = (existingRecord ? existingRecord.versionNumber : 0) + 1;
                 const record = {
@@ -119,15 +130,19 @@ const createKidscodeDevelopmentPersistenceAdapter = ({
                     versionNumber,
                     savedAt: new Date().toISOString(),
                     sb3,
-                    lastSaveReason: reason
+                    lastSaveReason: reason,
+                    status
                 };
-                return Promise.resolve(store.putProject(record)).then(() => ({
+                return Promise.resolve(store.putProject(record, {
+                    expectedVersionRef: (existingRecord && existingRecord.versionRef) || null,
+                    allowedStatuses: [KidscodeProjectStatus.DRAFT, KidscodeProjectStatus.CHANGES_REQUESTED]
+                })).then(() => ({
                     success: true,
                     data: {
                         project_ref: projectRef,
                         version_ref: record.versionRef,
                         saved_at: record.savedAt,
-                        status: 'draft'
+                        status
                     }
                 }));
             });

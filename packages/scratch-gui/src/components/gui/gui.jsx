@@ -163,16 +163,23 @@ const GUIComponent = props => {
         isTelemetryEnabled,
         isTotallyNormal,
         kidscodeProjectManagementStatus,
+        kidscodeProjectReadOnly,
+        kidscodeProjectStatus,
         kidscodeProjectTitle,
+        kidscodeReviewFeedback,
+        kidscodeReviewMode,
         kidscodeStudentName,
+        kidscodeSubmissionReviewStatus,
         kidscodeWorkspaceState,
         loading,
         logo,
         manuallySaveThumbnails,
         onBackToKidscode,
+        onApproveSubmission,
         onDeleteDraft,
         onDuplicateProject,
         onRenameProject,
+        onRequestChanges,
         onReturnToLesson,
         onReturnToMyScratchProjects,
         onSaveProject,
@@ -384,13 +391,19 @@ const GUIComponent = props => {
                             isShared={isShared}
                             isTotallyNormal={isTotallyNormal}
                             kidscodeProjectManagementStatus={kidscodeProjectManagementStatus}
+                            kidscodeProjectReadOnly={kidscodeProjectReadOnly}
+                            kidscodeProjectStatus={kidscodeProjectStatus}
                             kidscodeProjectTitle={kidscodeProjectTitle}
+                            kidscodeReviewFeedback={kidscodeReviewFeedback}
+                            kidscodeReviewMode={kidscodeReviewMode}
                             kidscodeStudentName={kidscodeStudentName}
+                            kidscodeSubmissionReviewStatus={kidscodeSubmissionReviewStatus}
                             kidscodeWorkspaceState={kidscodeWorkspaceState}
                             logo={logo}
                             renderLogin={renderLogin}
                             showComingSoon={showComingSoon}
                             onBackToKidscode={onBackToKidscode}
+                            onApproveSubmission={onApproveSubmission}
                             onClickAbout={onClickAbout}
                             onClickLogo={onClickLogo}
                             onDeleteDraft={onDeleteDraft}
@@ -400,6 +413,7 @@ const GUIComponent = props => {
                             onOpenRegistration={onOpenRegistration}
                             onProjectTelemetryEvent={onProjectTelemetryEvent}
                             onRenameProject={onRenameProject}
+                            onRequestChanges={onRequestChanges}
                             onReturnToLesson={onReturnToLesson}
                             onReturnToMyScratchProjects={onReturnToMyScratchProjects}
                             onSaveProject={onSaveProject}
@@ -666,16 +680,23 @@ GUIComponent.propTypes = {
         isDeleting: PropTypes.bool,
         deleted: PropTypes.bool
     }),
+    kidscodeProjectReadOnly: PropTypes.bool,
+    kidscodeProjectStatus: PropTypes.string,
     kidscodeProjectTitle: PropTypes.string,
+    kidscodeReviewFeedback: PropTypes.string,
+    kidscodeReviewMode: PropTypes.bool,
     kidscodeStudentName: PropTypes.string,
+    kidscodeSubmissionReviewStatus: PropTypes.object, // eslint-disable-line react/forbid-prop-types
     kidscodeWorkspaceState: PropTypes.oneOf(KidscodeWorkspaceStates),
     loading: PropTypes.bool,
     logo: PropTypes.string,
     manuallySaveThumbnails: PropTypes.bool,
     onBackToKidscode: PropTypes.func,
+    onApproveSubmission: PropTypes.func,
     onDeleteDraft: PropTypes.func,
     onDuplicateProject: PropTypes.func,
     onRenameProject: PropTypes.func,
+    onRequestChanges: PropTypes.func,
     onReturnToLesson: PropTypes.func,
     onReturnToMyScratchProjects: PropTypes.func,
     onSaveProject: PropTypes.func,

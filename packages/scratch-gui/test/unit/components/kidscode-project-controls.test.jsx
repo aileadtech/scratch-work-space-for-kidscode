@@ -274,6 +274,18 @@ describe('Kidscode project controls', () => {
         expect(getByText('Delete draft').getAttribute('aria-disabled')).toBe('true');
     });
 
+    test('review mode disables every project-management mutation including Duplicate', () => {
+        const {getByRole, getByText} = renderWithIntl(getProjectMenu({
+            reviewMode: true,
+            session: buildSession('submitted')
+        }));
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+        expect(getByText('Rename').getAttribute('aria-disabled')).toBe('true');
+        expect(getByText('Duplicate').getAttribute('aria-disabled')).toBe('true');
+        expect(getByText('Delete draft').getAttribute('aria-disabled')).toBe('true');
+    });
+
     test('invokes the permanent Save and Submit callback seams', () => {
         const onSaveProject = jest.fn();
         const onSubmitProject = jest.fn();
@@ -305,5 +317,85 @@ describe('Kidscode project controls', () => {
         expect(saveButton.disabled).toBe(true);
         fireEvent.click(saveButton);
         expect(onSaveProject).not.toHaveBeenCalled();
+    });
+
+    test('Submitted and Approved are visibly read-only for student persistence and submission', () => {
+        const firstRender = renderWithIntl(
+            <KidscodeProjectActionButtons
+                projectReadOnly
+                projectStatus="submitted"
+                onSaveProject={jest.fn()}
+                onSubmitProject={jest.fn()}
+            />
+        );
+
+        expect(firstRender.getByText('Submitted')).toBeTruthy();
+        expect(firstRender.getByRole('button', {name: 'Save project'}).disabled).toBe(true);
+        expect(firstRender.queryByRole('button', {name: 'Submit project'})).toBeFalsy();
+        firstRender.unmount();
+
+        const approvedRender = renderWithIntl(
+            <KidscodeProjectActionButtons
+                projectReadOnly
+                projectStatus="approved"
+                onSaveProject={jest.fn()}
+                onSubmitProject={jest.fn()}
+            />
+        );
+        expect(approvedRender.getByText('Approved')).toBeTruthy();
+        expect(approvedRender.queryByRole('button', {name: 'Submit project'})).toBeFalsy();
+    });
+
+    test('Changes Requested exposes feedback, keeps Save enabled, and uses Resubmit', () => {
+        const onSubmitProject = jest.fn();
+        const {getByRole, getByText} = renderWithIntl(
+            <Provider store={store}>
+                <KidscodeProjectActionButtons
+                    projectStatus="changes_requested"
+                    reviewFeedback="Add a loop."
+                    onSaveProject={jest.fn()}
+                    onSubmitProject={onSubmitProject}
+                />
+            </Provider>
+        );
+
+        expect(getByText('Changes requested')).toBeTruthy();
+        expect(getByRole('button', {name: 'Save project'}).disabled).toBe(false);
+        fireEvent.click(getByRole('button', {name: 'View feedback'}));
+        expect(getByText('Add a loop.')).toBeTruthy();
+        fireEvent.click(getByRole('button', {name: 'OK'}));
+        fireEvent.click(getByRole('button', {name: 'Resubmit project'}));
+        expect(onSubmitProject).toHaveBeenCalledTimes(1);
+    });
+
+    test('review mode replaces student controls with version-bound tutor actions', async () => {
+        const onApproveSubmission = jest.fn(() => Promise.resolve());
+        const onRequestChanges = jest.fn(() => Promise.resolve());
+        const {getByRole, getByText, queryByRole} = renderWithIntl(
+            <Provider store={store}>
+                <KidscodeProjectActionButtons
+                    projectReadOnly
+                    reviewMode
+                    projectStatus="submitted"
+                    onApproveSubmission={onApproveSubmission}
+                    onRequestChanges={onRequestChanges}
+                    onSaveProject={jest.fn()}
+                    onSubmitProject={jest.fn()}
+                />
+            </Provider>
+        );
+
+        expect(getByText('Review mode')).toBeTruthy();
+        expect(queryByRole('button', {name: 'Save project'})).toBeFalsy();
+        expect(queryByRole('button', {name: 'Submit project'})).toBeFalsy();
+        fireEvent.click(getByRole('button', {name: 'Approve'}));
+        expect(onApproveSubmission).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(getByRole('button', {name: 'Request changes'}));
+        fireEvent.change(getByRole('textbox', {name: 'Feedback for the student'}), {
+            target: {value: 'Please add a loop.'}
+        });
+        fireEvent.click(document.querySelector('button[type="submit"]'));
+        await waitFor(() => expect(onRequestChanges).toHaveBeenCalledWith('Please add a loop.'));
     });
 });
