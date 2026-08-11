@@ -7,8 +7,27 @@ import {
     validateKidscodeLaunchResponse
 } from '../../../src/lib/kidscode-workspace-launch';
 
+// Mirrors the in-memory fake store used by the development adapter tests: jsdom does not
+// implement IndexedDB, and this also makes "no development record yet" explicit rather than
+// relying on a real IndexedDB read failing.
+const createInMemoryStore = () => {
+    const records = new Map();
+    return {
+        getProject: projectRef => Promise.resolve(records.get(projectRef)),
+        putProject: record => {
+            records.set(record.projectRef, Object.assign({}, records.get(record.projectRef), record));
+            return Promise.resolve();
+        },
+        records
+    };
+};
+
 describe('Kidscode workspace launch resolver', () => {
-    const resolveDevelopmentLaunch = createDevelopmentMockLaunchResolver({delay: 0, environment: 'test'});
+    const resolveDevelopmentLaunch = createDevelopmentMockLaunchResolver({
+        delay: 0,
+        environment: 'test',
+        store: createInMemoryStore()
+    });
 
     test('reads only the launch token from the URL', () => {
         expect(readKidscodeLaunchToken({
@@ -112,5 +131,50 @@ describe('Kidscode workspace launch resolver', () => {
     test('development mock cannot be created in production', () => {
         expect(() => createDevelopmentMockLaunchResolver({environment: 'production'}))
             .toThrow('cannot run in production');
+    });
+
+    describe('development title hydration from the project-management store', () => {
+        test('reflects a title renamed earlier in the same browser session', async () => {
+            const store = createInMemoryStore();
+            store.records.set('SCR-PROJ-X82AB', {projectRef: 'SCR-PROJ-X82AB', title: 'My Walking Cat'});
+            const resolveWithRenamedStore = createDevelopmentMockLaunchResolver({delay: 0, environment: 'test', store});
+
+            const response = await resolveWithRenamedStore('demo-lesson');
+
+            expect(response.data.project.title).toBe('My Walking Cat');
+            // Only the title is overridden; nothing else about the launch fixture changes.
+            expect(response.data.project.project_ref).toBe('SCR-PROJ-X82AB');
+            expect(response.data.assignment.title).toBe('Make the Cat Walk');
+        });
+
+        test('does not mutate the shared static fixture for later, unrelated launches', async () => {
+            const renamedStore = createInMemoryStore();
+            renamedStore.records.set('SCR-PROJ-X82AB', {projectRef: 'SCR-PROJ-X82AB', title: 'My Walking Cat'});
+            const resolveWithRenamedStore = createDevelopmentMockLaunchResolver({
+                delay: 0, environment: 'test', store: renamedStore
+            });
+            await resolveWithRenamedStore('demo-lesson');
+
+            const freshResponse = await resolveDevelopmentLaunch('demo-lesson');
+            expect(freshResponse.data.project.title).toBe('Make the Cat Walk');
+        });
+
+        test('falls back to the fixture title when the development store read fails', async () => {
+            const failingStore = {getProject: () => Promise.reject(new Error('IndexedDB unavailable'))};
+            const resolveWithFailingStore = createDevelopmentMockLaunchResolver({
+                delay: 0, environment: 'test', store: failingStore
+            });
+
+            const response = await resolveWithFailingStore('demo-lesson');
+            expect(response.data.project.title).toBe('Make the Cat Walk');
+        });
+
+        test('does not consult the store for an error response', async () => {
+            const store = {getProject: jest.fn(() => Promise.resolve())};
+            const resolveWithStore = createDevelopmentMockLaunchResolver({delay: 0, environment: 'test', store});
+
+            await resolveWithStore('demo-expired');
+            expect(store.getProject).not.toHaveBeenCalled();
+        });
     });
 });

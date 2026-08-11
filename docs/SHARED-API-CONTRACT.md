@@ -2,7 +2,8 @@
 
 This document is the repository source of truth for the API boundary shared by the Kidscode Scratch Workspace and
 the Kidscode Laravel application. Phase 3 defines the secure Workspace launch contract. Phase 4 adds the Workspace
-persistence (save/load/autosave) contract. Neither defines rename, duplicate, delete, submission, or review APIs.
+persistence (save/load/autosave) contract. Phase 5 adds the Workspace project-management (rename/duplicate/delete)
+contract. None of the three define submission or review APIs.
 
 ## Resolve Workspace launch
 
@@ -225,3 +226,184 @@ Like the Phase 3 development launch resolver, this factory throws if constructed
 and `render-gui.jsx` only ever constructs it when `process.env.NODE_ENV !== 'production'`. Production uses an
 adapter that always rejects (`createUnavailableKidscodeWorkspacePersistenceAdapter`) until the Laravel adapter is
 implemented — there is no "Laravel failed, fall back to IndexedDB" path.
+
+## Workspace Project Management (Phase 5)
+
+Phase 5 defines the contract between the Workspace and a project-management adapter, covering rename, duplicate,
+and delete-draft. It does not redefine or change the Phase 3 launch or Phase 4 persistence contracts above. As with
+persistence, the adapter is the only thing that differs between development (the same IndexedDB-backed mock store)
+and production (Laravel); the Workspace UI and its controller call the same adapter interface either way.
+
+### Adapter interface
+
+```text
+renameProject({projectRef, workspaceAccessToken, title}) -> Promise<RenameResult>
+duplicateProject({projectRef, workspaceAccessToken, sb3, title}) -> Promise<DuplicateResult>
+deleteDraftProject({projectRef, workspaceAccessToken}) -> Promise<DeleteResult>
+```
+
+`sb3` for `duplicateProject` is the same `ArrayBuffer` shape the Phase 4 contract passes to `saveProject` — the
+Workspace calls `vm.saveProjectSb3()` immediately before duplicating, so the copy always reflects what is currently
+visible in the editor, including unsaved changes, not just the last persisted version.
+
+`title` for `duplicateProject` is the *current confirmed* project title (reflecting any rename already made earlier
+in the same session), not the launch-time title. The adapter appends the established " Copy" suffix
+(`buildDuplicateProjectTitle`); the Workspace does not attempt conflict-aware naming beyond that.
+
+**`duplicateProject` always creates a new INDEPENDENT draft project, regardless of the original's `project_type`.**
+There is no `projectType` request field — the caller cannot choose it, and the adapter does not accept one, so it
+cannot be overridden by mistake. A duplicate of a lesson project has no `assignment_ref`/`course_ref`/`lesson_ref`
+association, the same as any other independent project: a student must not end up with a second active lesson
+project attached to the same assignment. Duplicating an independent project also produces an independent draft, so
+this is not a special case — it is the only behaviour `duplicateProject` has.
+
+### RenameResult
+
+```json
+{
+  "success": true,
+  "data": {
+    "project_ref": "SCR-PROJ-X82AB",
+    "title": "My Walking Cat",
+    "updated_at": "2026-08-11T18:30:00Z"
+  }
+}
+```
+
+The title is trimmed of leading/trailing whitespace and rejected if empty or longer than 100 characters
+(`KIDSCODE_PROJECT_TITLE_MAX_LENGTH`) — the same limit already enforced by the rename dialog's input. The Workspace
+does not update the confirmed, visible title until this call resolves; a rejected `renameProject` call leaves the
+previously confirmed title in place and the rename dialog open with a retry available.
+
+### DuplicateResult
+
+```json
+{
+  "success": true,
+  "data": {
+    "project_ref": "SCR-PROJ-NEW123",
+    "title": "Make the Cat Walk Copy",
+    "project_type": "independent",
+    "status": "draft",
+    "created_at": "2026-08-11T18:30:00Z"
+  }
+}
+```
+
+This example duplicates a *lesson* project ("Make the Cat Walk", the `demo-lesson` fixture) — note `project_type`
+is `"independent"` in the result, not `"lesson"`, per the always-independent rule above.
+
+`duplicateProject` always returns a **new** `project_ref` with `project_type: "independent"` and `status: "draft"`,
+regardless of the original project's type or status. The current Workspace session's `project_ref` and
+`workspace_access_token` are never changed by a duplicate — the Workspace stays open on the original project. The
+Phase 3 `workspace_access_token` authorises only the currently launched project; it is not assumed to authorise the
+new duplicate. The duplicate becomes reachable through the normal secure-launch flow later (outside Phase 5's
+scope), the same as any other project.
+
+### DeleteResult
+
+```json
+{
+  "success": true,
+  "data": {
+    "project_ref": "SCR-PROJ-X82AB",
+    "deleted": true
+  }
+}
+```
+
+Delete only ever deletes the current *draft*; there is no bulk or cascading delete. Once a delete succeeds, the
+Workspace treats the current session as permanently blocked for the rest of that page load: manual Save, autosave,
+Rename, and Duplicate all stop, and a blocking "Draft Deleted" state replaces the editor (reusing the same
+non-dismissable modal pattern as Session Expired / Corrupted Project). Phase 5 does not implement return navigation
+out of that state — that is Phase 7 scope.
+
+### Project status and the conservative Phase 5 restriction rule
+
+`project.status` was defined by the Phase 3 launch response but never enforced anywhere before Phase 5; every
+development fixture and adapter response hard-codes `"draft"`, and no other status value appears anywhere in this
+repository. In the absence of an established product rule for the other three statuses (`submitted`,
+`changes_requested`, `approved`), Phase 5 adopts the conservative rule below, enforced both in the Project menu (so
+the controls are greyed out) and again in the development adapter (so a stale/manipulated client cannot bypass it):
+
+| Status | Rename | Duplicate | Delete |
+| --- | --- | --- | --- |
+| `draft` | allowed | allowed | allowed |
+| `submitted` | blocked | allowed | blocked |
+| `changes_requested` | blocked | allowed | blocked |
+| `approved` | blocked | allowed | blocked |
+
+Duplicate is allowed regardless of status because it only ever creates a new, independent draft copy and never
+mutates the original project or its authorisation — there is no security reason to gate it on the original's
+status. If Kidscode's product rules turn out to differ (e.g. rename should remain available for
+`changes_requested` projects so a student can retitle before resubmitting), that is a product decision for a future
+phase to make explicitly, not one Phase 5 has invented.
+
+### Future Laravel HTTP endpoints
+
+These are proposed, not yet implemented, following the same conventions as the Phase 4 endpoints above.
+
+**`PATCH /api/scratch/workspace/projects/{project_ref}`**
+
+- Purpose: rename the current authorised project.
+- Authentication: `workspace_access_token`.
+- Request: `{"title": "My Walking Cat"}`.
+- Successful response: the `RenameResult` JSON shape above.
+- Backend must enforce ownership/access and `status === draft` (see the restriction rule above).
+
+**`POST /api/scratch/workspace/projects/{project_ref}/duplicate`**
+
+- Purpose: create a new **independent draft** project from the current project content, regardless of the
+  original's `project_type`.
+- Authentication: `workspace_access_token`.
+- Request format: `multipart/form-data` with field `project_file` (the current `.sb3`), matching the Phase 4 save
+  endpoint's encoding of project bytes. There is no `project_type` field — the backend always creates an
+  independent draft.
+- Successful response: the `DuplicateResult` JSON shape above. The backend allocates the new `project_ref` and must
+  not associate it with the original's `assignment_ref`/`course_ref`/`lesson_ref`, if the original had one.
+
+**`DELETE /api/scratch/workspace/projects/{project_ref}`**
+
+- Purpose: delete an authorised **draft** project.
+- Authentication: `workspace_access_token`.
+- Backend must enforce ownership/access and `status === draft`; any other status returns an error rather than
+  deleting.
+- Successful response: the `DeleteResult` JSON shape above.
+
+### Development adapter
+
+The development adapter (`createKidscodeDevelopmentProjectManagementAdapter`) implements the same interface against
+the **same** browser-local, development-only IndexedDB store the Phase 4 persistence adapter uses
+(`kidscode-workspace-dev-store`), rather than a second unrelated store. Records now also carry `title`,
+`projectType`, `status`, `createdAt`, `updatedAt`, and (once deleted) `deletedAt`; the store's `putProject` merges a
+partial record onto whatever already exists for that `project_ref` so a save from one adapter can never erase
+metadata written by the other (e.g. a rename landing while an autosave is in flight). It:
+
+- requires a non-empty `workspaceAccessToken`, exactly like the persistence adapter;
+- enforces the status restriction rule above, defaulting an untouched project (no project-management record yet) to
+  `draft`, matching every development launch fixture's initial status;
+- rejects a second `deleteDraftProject` call against an already-deleted project;
+- recognises three reserved development `project_ref` fixtures (wired to the `demo-rename-failure`,
+  `demo-duplicate-failure`, and `demo-delete-failure` launch tokens) that always reject their respective action —
+  used only to demonstrate the failure/retry UI, and inert for any other `project_ref`;
+- never persists the workspace access token, launch token, or any other credential.
+
+The Phase 4 development persistence adapter also checks the shared store's `deletedAt` field on every `loadProject`
+and `saveProject` call and rejects if set, as defense in depth alongside the Workspace's own client-side block —
+the store is the one place both adapters agree on a project's deletion state.
+
+Like the Phase 3/4 development implementations, this factory throws if constructed with `environment: 'production'`,
+and `render-gui.jsx` only ever constructs it when `process.env.NODE_ENV !== 'production'`. Production uses an
+adapter that always rejects (`createUnavailableKidscodeWorkspaceProjectManagementAdapter`) until the Laravel adapter
+is implemented — there is no "Laravel failed, fall back to IndexedDB" path.
+
+**Development-only title hydration on reopen.** The Phase 3 development launch resolver
+(`createDevelopmentMockLaunchResolver`) is a set of static fixtures, so a renamed project would otherwise appear to
+"forget" its title every time it is relaunched, even though this store correctly persisted the rename. In
+development only, the resolver now reads this same store for the fixture's `project_ref` and overlays the stored
+`title` onto the fixture response, without touching or mutating the fixture object itself. This does not make
+IndexedDB authoritative and does not change the Phase 3 request/response contract: a real Laravel launch response
+remains the sole authority for project title once connected, since a real backend's project row is itself the
+source of truth and there is no separate client-side store for it to disagree with. The resolver never runs in
+production (`render-gui.jsx` always selects a rejecting resolver there), so this has no production code path at
+all.

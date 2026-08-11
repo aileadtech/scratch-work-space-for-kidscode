@@ -81,8 +81,16 @@
     font: inherit;
 }
 
-.delete-message {
+.delete-message,
+.duplicate-message {
     margin: 0;
+    font-weight: normal;
+    line-height: 1.5;
+}
+
+.dialog-error {
+    margin: 0.75rem 0 0;
+    color: $red-primary;
     font-weight: normal;
     line-height: 1.5;
 }
@@ -122,6 +130,11 @@
 
 .delete-menu-item {
     color: $ui-white;
+}
+
+.disabled-menu-item {
+    opacity: 0.5;
+    pointer-events: none;
 }
 
 @media only screen and (max-width: 1025px) {

@@ -15,15 +15,18 @@ import {createUnavailableKidscodeWorkspacePersistenceAdapter}
     from '../lib/kidscode-workspace-persistence/kidscode-workspace-persistence-contract';
 import {createKidscodeDevelopmentPersistenceAdapter}
     from '../lib/kidscode-workspace-persistence/kidscode-development-persistence-adapter';
+import KidscodeWorkspaceProjectManagementHOC
+    from '../lib/kidscode-workspace-project-management/kidscode-workspace-project-management-hoc.jsx';
+import {createUnavailableKidscodeWorkspaceProjectManagementAdapter}
+    from '../lib/kidscode-workspace-project-management/kidscode-workspace-project-management-contract';
+import {createKidscodeDevelopmentProjectManagementAdapter}
+    from '../lib/kidscode-workspace-project-management/kidscode-development-project-management-adapter';
 
 const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
 };
 
 const onBackToKidscode = () => {};
-const onDeleteDraft = () => {};
-const onDuplicateProject = () => {};
-const onRenameProject = () => {};
 const onReturnToLesson = () => {};
 const onReturnToMyScratchProjects = () => {};
 const onSaveProject = () => {};
@@ -57,6 +60,7 @@ export default appTarget => {
     const WrappedGui = KidscodeWorkspaceLaunchHOC(compose(
         AppStateHOC,
         HashParserHOC,
+        KidscodeWorkspaceProjectManagementHOC,
         KidscodeWorkspacePersistenceHOC
     )(GUI));
 
@@ -69,6 +73,12 @@ export default appTarget => {
     const persistenceAdapter = process.env.NODE_ENV === 'production' ?
         createUnavailableKidscodeWorkspacePersistenceAdapter() :
         createKidscodeDevelopmentPersistenceAdapter();
+
+    // Same production-safe selection as the persistence adapter above: the Laravel
+    // project-management adapter does not exist yet, so production must fail closed.
+    const projectManagementAdapter = process.env.NODE_ENV === 'production' ?
+        createUnavailableKidscodeWorkspaceProjectManagementAdapter() :
+        createKidscodeDevelopmentProjectManagementAdapter();
 
     // TODO a hack for testing the backpack, allow backpack host to be set by url param
     const backpackHostMatches = window.location.href.match(/[?&]backpack_host=([^&]*)&?/);
@@ -100,14 +110,12 @@ export default appTarget => {
             <WrappedGui
                 canEditTitle={false}
                 kidscodeWorkspacePersistenceAdapter={persistenceAdapter}
+                kidscodeWorkspaceProjectManagementAdapter={projectManagementAdapter}
                 launchResolver={launchResolver}
                 platform={PLATFORM.DESKTOP}
                 showTelemetryModal
                 canSave={false}
                 onBackToKidscode={onBackToKidscode}
-                onDeleteDraft={onDeleteDraft}
-                onDuplicateProject={onDuplicateProject}
-                onRenameProject={onRenameProject}
                 onReturnToLesson={onReturnToLesson}
                 onReturnToMyScratchProjects={onReturnToMyScratchProjects}
                 onSaveProject={onSaveProject}
@@ -120,6 +128,7 @@ export default appTarget => {
             <WrappedGui
                 canEditTitle={false}
                 kidscodeWorkspacePersistenceAdapter={persistenceAdapter}
+                kidscodeWorkspaceProjectManagementAdapter={projectManagementAdapter}
                 launchResolver={launchResolver}
                 backpackVisible
                 showComingSoon
@@ -127,9 +136,6 @@ export default appTarget => {
                 canSave={false}
                 onBackToKidscode={onBackToKidscode}
                 onClickLogo={onClickLogo}
-                onDeleteDraft={onDeleteDraft}
-                onDuplicateProject={onDuplicateProject}
-                onRenameProject={onRenameProject}
                 onReturnToLesson={onReturnToLesson}
                 onReturnToMyScratchProjects={onReturnToMyScratchProjects}
                 onSaveProject={onSaveProject}

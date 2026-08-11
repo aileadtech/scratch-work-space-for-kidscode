@@ -1,3 +1,5 @@
+import {createIndexedDbProjectStore} from './kidscode-workspace-persistence/kidscode-development-project-store';
+
 const KidscodeLaunchType = Object.freeze({
     NEW_INDEPENDENT: 'new_independent',
     EXISTING_INDEPENDENT: 'existing_independent',
@@ -56,6 +58,14 @@ const createSuccessFixture = ({
 const KidscodeDevelopmentPersistenceFixtureProjectRef = Object.freeze({
     SAVE_FAILURE: 'SCR-PROJ-DEVFAILSAVE',
     CORRUPTED_PROJECT: 'SCR-PROJ-DEVCORRUPT'
+});
+
+// Reserved development-only project_ref values recognised by the development project-management
+// adapter to simulate a rename, duplicate, or delete that always fails.
+const KidscodeDevelopmentProjectManagementFixtureProjectRef = Object.freeze({
+    RENAME_FAILURE: 'SCR-PROJ-DEVFAILRENAME',
+    DUPLICATE_FAILURE: 'SCR-PROJ-DEVFAILDUP',
+    DELETE_FAILURE: 'SCR-PROJ-DEVFAILDEL'
 });
 
 const lessonContext = {
@@ -134,6 +144,36 @@ const developmentFixtures = {
         projectTitle: 'Corrupted Project Demo',
         projectType: 'independent',
         sessionRef: 'SCR-SESSION-DEVCORRUPT'
+    }),
+    'demo-rename-failure': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.EXISTING_INDEPENDENT,
+        projectRef: KidscodeDevelopmentProjectManagementFixtureProjectRef.RENAME_FAILURE,
+        projectTitle: 'Rename Failure Demo',
+        projectType: 'independent',
+        sessionRef: 'SCR-SESSION-DEVFAILRENAME'
+    }),
+    'demo-duplicate-failure': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.EXISTING_INDEPENDENT,
+        projectRef: KidscodeDevelopmentProjectManagementFixtureProjectRef.DUPLICATE_FAILURE,
+        projectTitle: 'Duplicate Failure Demo',
+        projectType: 'independent',
+        sessionRef: 'SCR-SESSION-DEVFAILDUP'
+    }),
+    'demo-delete-failure': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.EXISTING_INDEPENDENT,
+        projectRef: KidscodeDevelopmentProjectManagementFixtureProjectRef.DELETE_FAILURE,
+        projectTitle: 'Delete Failure Demo',
+        projectType: 'independent',
+        sessionRef: 'SCR-SESSION-DEVFAILDEL'
     }),
     'demo-expired': {
         success: false,
@@ -225,7 +265,40 @@ const validateKidscodeLaunchResponse = response => {
     return response;
 };
 
-const createDevelopmentMockLaunchResolver = ({delay = 500, environment = process.env.NODE_ENV} = {}) => {
+// Applies the development project-management store's current title onto a launch fixture's
+// response, without mutating the shared fixture object (developmentFixtures is a module-level
+// singleton reused by every call).
+const withDevelopmentTitleOverride = (fixture, title) => ({
+    ...fixture,
+    data: {
+        ...fixture.data,
+        project: {
+            ...fixture.data.project,
+            title
+        }
+    }
+});
+
+/**
+ * Development-only launch resolver. Its fixtures are static, but a Rename made earlier in the
+ * same browser session is stored in the shared development project-management store; without
+ * consulting it, reopening a demo project would visibly "forget" its renamed title even though
+ * the store still has it. This is purely a local development convenience — it does not make
+ * IndexedDB authoritative (a real Laravel launch response is authoritative for project title once
+ * connected, and this resolver never runs in production; see render-gui.jsx) and it does not
+ * touch persisted .sb3 content.
+ * @param {object} [options] - resolver options
+ * @param {number} [options.delay] - artificial network delay in ms
+ * @param {string} [options.environment] - override for `process.env.NODE_ENV`, for tests
+ * @param {{getProject: Function, putProject: Function}} [options.store] - override for the
+ *   underlying store, for tests that cannot use real IndexedDB
+ * @returns {Function} a launch resolver
+ */
+const createDevelopmentMockLaunchResolver = ({
+    delay = 500,
+    environment = process.env.NODE_ENV,
+    store = createIndexedDbProjectStore()
+} = {}) => {
     if (environment === 'production') {
         throw new Error('The development workspace launch resolver cannot run in production.');
     }
@@ -237,13 +310,26 @@ const createDevelopmentMockLaunchResolver = ({delay = 500, environment = process
                 return;
             }
 
-            resolve(developmentFixtures[launchToken] || developmentFixtures['demo-invalid']);
+            const fixture = developmentFixtures[launchToken] || developmentFixtures['demo-invalid'];
+            if (!fixture.success) {
+                resolve(fixture);
+                return;
+            }
+
+            Promise.resolve(store.getProject(fixture.data.project.project_ref))
+                .then(record => {
+                    resolve(record && record.title ? withDevelopmentTitleOverride(fixture, record.title) : fixture);
+                })
+                // A development store read failure is not a reason to fail the whole launch demo;
+                // fall back to the static fixture title.
+                .catch(() => resolve(fixture));
         }, delay);
     });
 };
 
 export {
     KidscodeDevelopmentPersistenceFixtureProjectRef,
+    KidscodeDevelopmentProjectManagementFixtureProjectRef,
     KidscodeLaunchErrorCode,
     KidscodeLaunchType,
     KidscodeLaunchTypes,

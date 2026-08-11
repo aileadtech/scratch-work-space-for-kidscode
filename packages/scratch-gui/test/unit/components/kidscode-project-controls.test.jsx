@@ -1,11 +1,12 @@
 import React from 'react';
-import {fireEvent} from '@testing-library/react';
+import {fireEvent, waitFor} from '@testing-library/react';
 import configureStore from 'redux-mock-store';
 import {Provider} from 'react-redux';
 import ReactModal from 'react-modal';
 
 import {renderWithIntl} from '../../helpers/intl-helpers.jsx';
 import {MenuRefProvider} from '../../../src/contexts/menu-ref-context.jsx';
+import {KidscodeWorkspaceSessionProvider} from '../../../src/contexts/kidscode-workspace-session-context.jsx';
 import {
     KidscodeProjectActionButtons,
     KidscodeProjectMenu
@@ -18,6 +19,24 @@ jest.mock('../../../src/containers/sb3-downloader.jsx', () => function MockSB3Do
     return children('', mockDownloadProject);
 });
 
+const buildSession = status => ({
+    session_ref: 'SCR-SESSION-TEST',
+    expires_at: '2099-08-10T15:00:00Z',
+    workspace_access_token: 'DEVELOPMENT_WORKSPACE_TOKEN_TEST',
+    student: {display_name: 'Adewale'},
+    project: {
+        project_ref: 'SCR-PROJ-TEST',
+        title: 'Original title',
+        project_type: 'independent',
+        status
+    },
+    assignment: null,
+    course: null,
+    lesson: null,
+    launch_type: 'existing_independent',
+    return_to: {type: 'projects', url: '/scratch-projects'}
+});
+
 describe('Kidscode project controls', () => {
     let modalAppElement;
     const store = configureStore()({
@@ -26,23 +45,25 @@ describe('Kidscode project controls', () => {
         }
     });
 
-    const defaultCallback = jest.fn();
+    const defaultCallback = jest.fn(() => Promise.resolve());
     const getSaveToComputerHandler = downloadProject => downloadProject;
-    const getProjectMenu = props => (
+    const getProjectMenu = ({session = null, ...props} = {}) => (
         <Provider store={store}>
             <MenuRefProvider>
-                <KidscodeProjectMenu
-                    // eslint-disable-next-line react/jsx-no-bind
-                    getSaveToComputerHandler={getSaveToComputerHandler}
-                    isRtl={false}
-                    projectTitle="Original title"
-                    onDeleteDraft={defaultCallback}
-                    onDuplicateProject={defaultCallback}
-                    onRenameProject={defaultCallback}
-                    onReturnToLesson={defaultCallback}
-                    onReturnToMyScratchProjects={defaultCallback}
-                    {...props}
-                />
+                <KidscodeWorkspaceSessionProvider session={session}>
+                    <KidscodeProjectMenu
+                        // eslint-disable-next-line react/jsx-no-bind
+                        getSaveToComputerHandler={getSaveToComputerHandler}
+                        isRtl={false}
+                        projectTitle="Original title"
+                        onDeleteDraft={defaultCallback}
+                        onDuplicateProject={defaultCallback}
+                        onRenameProject={defaultCallback}
+                        onReturnToLesson={defaultCallback}
+                        onReturnToMyScratchProjects={defaultCallback}
+                        {...props}
+                    />
+                </KidscodeWorkspaceSessionProvider>
             </MenuRefProvider>
         </Provider>
     );
@@ -83,8 +104,8 @@ describe('Kidscode project controls', () => {
         expect(mockDownloadProject).toHaveBeenCalledTimes(1);
     });
 
-    test('renames locally on confirm and preserves the title on cancel', () => {
-        const onRenameProject = jest.fn();
+    test('renames once the adapter confirms, and preserves the title on cancel', async () => {
+        const onRenameProject = jest.fn(() => Promise.resolve({title: 'Renamed project'}));
         const {getByRole, getByText, queryByRole} = renderWithIntl(getProjectMenu({onRenameProject}));
 
         fireEvent.click(getByRole('button', {name: 'Project menu'}));
@@ -95,7 +116,8 @@ describe('Kidscode project controls', () => {
         fireEvent.click(getByRole('button', {name: 'Rename'}));
 
         expect(onRenameProject).toHaveBeenCalledWith('Renamed project');
-        expect(queryByRole('dialog')).toBeFalsy();
+        // The dialog only closes after the adapter confirms the rename, not optimistically.
+        await waitFor(() => expect(queryByRole('dialog')).toBeFalsy());
 
         fireEvent.click(getByRole('button', {name: 'Project menu'}));
         fireEvent.click(getByText('Rename'));
@@ -108,9 +130,40 @@ describe('Kidscode project controls', () => {
         expect(queryByRole('dialog')).toBeFalsy();
     });
 
-    test('requires confirmation before invoking delete draft', () => {
-        const onDeleteDraft = jest.fn();
-        const {getByRole, getByText} = renderWithIntl(getProjectMenu({onDeleteDraft}));
+    test('a failed rename keeps the dialog open with an error instead of closing', async () => {
+        const onRenameProject = jest.fn(() => Promise.reject(new Error('adapter rejected')));
+        const {getByRole, getByText} = renderWithIntl(getProjectMenu({onRenameProject}));
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+        fireEvent.click(getByText('Rename'));
+        fireEvent.change(getByRole('textbox', {name: 'Project title'}), {
+            target: {value: 'Renamed project'}
+        });
+        fireEvent.click(getByRole('button', {name: 'Rename'}));
+
+        await waitFor(() => expect(getByRole('alert')).toBeTruthy());
+        expect(getByRole('dialog')).toBeTruthy();
+        // Still open and usable for a retry, rather than a dead end.
+        expect(getByRole('button', {name: 'Rename'}).disabled).toBe(false);
+    });
+
+    test('the Rename confirm button is disabled for an empty or whitespace-only title', () => {
+        const {getByRole, getByText} = renderWithIntl(getProjectMenu());
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+        fireEvent.click(getByText('Rename'));
+        fireEvent.change(getByRole('textbox', {name: 'Project title'}), {
+            target: {value: '   '}
+        });
+
+        expect(getByRole('button', {name: 'Rename'}).disabled).toBe(true);
+    });
+
+    test('requires confirmation before invoking delete draft; a failure leaves the project available to retry', async () => {
+        const onDeleteDraft = jest.fn()
+            .mockImplementationOnce(() => Promise.reject(new Error('adapter rejected')))
+            .mockImplementationOnce(() => Promise.resolve({project_ref: 'SCR-PROJ-TEST', deleted: true}));
+        const {getByRole, getByText, queryByRole} = renderWithIntl(getProjectMenu({onDeleteDraft}));
 
         fireEvent.click(getByRole('button', {name: 'Project menu'}));
         fireEvent.click(getByText('Delete draft'));
@@ -120,15 +173,55 @@ describe('Kidscode project controls', () => {
         fireEvent.click(getByRole('button', {name: 'Project menu'}));
         fireEvent.click(getByText('Delete draft'));
         fireEvent.click(getByRole('button', {name: 'Delete draft'}));
+
         expect(onDeleteDraft).toHaveBeenCalledTimes(1);
+        await waitFor(() => expect(getByRole('alert')).toBeTruthy());
+        expect(queryByRole('dialog')).toBeTruthy();
+
+        fireEvent.click(getByRole('button', {name: 'Delete draft'}));
+        expect(onDeleteDraft).toHaveBeenCalledTimes(2);
+        await waitFor(() => expect(queryByRole('dialog')).toBeFalsy());
     });
 
-    test('invokes duplicate and return callback seams', () => {
-        const onDuplicateProject = jest.fn();
+    test('duplicate opens a status dialog immediately and shows the new copy on success', async () => {
+        const onDuplicateProject = jest.fn(() => Promise.resolve({
+            project_ref: 'SCR-PROJ-NEW',
+            title: 'Original title Copy'
+        }));
+        const {getByRole, getByText} = renderWithIntl(getProjectMenu({onDuplicateProject}));
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+        fireEvent.click(getByText('Duplicate'));
+
+        // The Project menu closes immediately (preventing a repeated click) while the request
+        // is still in flight; the current Workspace never navigates away from the original.
+        expect(onDuplicateProject).toHaveBeenCalledTimes(1);
+        await waitFor(() => expect(getByText(/Original title Copy/)).toBeTruthy());
+
+        fireEvent.click(getByRole('button', {name: 'OK'}));
+        await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeFalsy());
+    });
+
+    test('a failed duplicate shows an error with a retry', async () => {
+        const onDuplicateProject = jest.fn()
+            .mockImplementationOnce(() => Promise.reject(new Error('adapter rejected')))
+            .mockImplementationOnce(() => Promise.resolve({project_ref: 'SCR-PROJ-NEW', title: 'Copy'}));
+        const {getByRole, getByText} = renderWithIntl(getProjectMenu({onDuplicateProject}));
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+        fireEvent.click(getByText('Duplicate'));
+
+        await waitFor(() => expect(getByRole('alert')).toBeTruthy());
+
+        fireEvent.click(getByRole('button', {name: 'Try again'}));
+        await waitFor(() => expect(onDuplicateProject).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(getByText(/Copy/)).toBeTruthy());
+    });
+
+    test('invokes the return-to callback seams', () => {
         const onReturnToLesson = jest.fn();
         const onReturnToMyScratchProjects = jest.fn();
         const {getByRole, getByText} = renderWithIntl(getProjectMenu({
-            onDuplicateProject,
             onReturnToLesson,
             onReturnToMyScratchProjects
         }));
@@ -138,13 +231,47 @@ describe('Kidscode project controls', () => {
             fireEvent.click(getByText(label));
         };
 
-        selectProjectAction('Duplicate');
         selectProjectAction('Return to lesson');
         selectProjectAction('Return to My Scratch Projects');
 
-        expect(onDuplicateProject).toHaveBeenCalledTimes(1);
         expect(onReturnToLesson).toHaveBeenCalledTimes(1);
         expect(onReturnToMyScratchProjects).toHaveBeenCalledTimes(1);
+    });
+
+    test('Rename and Delete draft are disabled for a non-draft project, but Duplicate stays available', () => {
+        const {getByRole, getByText} = renderWithIntl(getProjectMenu({session: buildSession('submitted')}));
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+
+        expect(getByText('Rename').getAttribute('aria-disabled')).toBe('true');
+        expect(getByText('Delete draft').getAttribute('aria-disabled')).toBe('true');
+        expect(getByText('Duplicate').getAttribute('aria-disabled')).toBe('false');
+
+        fireEvent.click(getByText('Rename'));
+        expect(document.querySelector('[role="dialog"]')).toBeFalsy();
+    });
+
+    test('every project-management action is disabled once the project has been deleted', () => {
+        const {getByRole, getByText} = renderWithIntl(
+            getProjectMenu({workspaceState: KidscodeWorkspaceState.PROJECT_DELETED})
+        );
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+
+        expect(getByText('Rename').getAttribute('aria-disabled')).toBe('true');
+        expect(getByText('Duplicate').getAttribute('aria-disabled')).toBe('true');
+        expect(getByText('Delete draft').getAttribute('aria-disabled')).toBe('true');
+    });
+
+    test('menu actions are disabled while another project-management action is already in flight', () => {
+        const {getByRole, getByText} = renderWithIntl(getProjectMenu({
+            projectManagementStatus: {isRenaming: true, isDuplicating: false, isDeleting: false, deleted: false}
+        }));
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+
+        expect(getByText('Duplicate').getAttribute('aria-disabled')).toBe('true');
+        expect(getByText('Delete draft').getAttribute('aria-disabled')).toBe('true');
     });
 
     test('invokes the permanent Save and Submit callback seams', () => {
