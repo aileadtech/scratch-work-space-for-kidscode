@@ -161,4 +161,45 @@ describe('Kidscode development persistence adapter', () => {
         const stored = JSON.stringify(store.records.get('SCR-PROJ-NO-TOKEN'));
         expect(stored).not.toContain(workspaceAccessToken);
     });
+
+    // The project-management adapter (Phase 5) marks a record's deletedAt on the same shared
+    // store; a stale in-memory Workspace session must not be able to resurrect a deleted draft.
+    describe('a deleted project (deletedAt set by the project-management adapter)', () => {
+        test('loadProject rejects rather than returning stale content', async () => {
+            const store = createInMemoryStore();
+            store.records.set('SCR-PROJ-DELETED', {
+                projectRef: 'SCR-PROJ-DELETED',
+                versionRef: 'SCR-DEV-VER-1',
+                sb3: {},
+                deletedAt: '2026-08-10T00:00:00Z'
+            });
+            const adapter = createAdapter(store);
+
+            await expect(adapter.loadProject({
+                projectRef: 'SCR-PROJ-DELETED',
+                workspaceAccessToken,
+                launchType: KidscodeLaunchType.EXISTING_INDEPENDENT
+            })).rejects.toThrow('deleted');
+        });
+
+        test('saveProject rejects rather than reviving the deleted record', async () => {
+            const store = createInMemoryStore();
+            store.records.set('SCR-PROJ-DELETED', {
+                projectRef: 'SCR-PROJ-DELETED',
+                versionRef: 'SCR-DEV-VER-1',
+                sb3: {},
+                deletedAt: '2026-08-10T00:00:00Z'
+            });
+            const adapter = createAdapter(store);
+
+            await expect(adapter.saveProject({
+                projectRef: 'SCR-PROJ-DELETED',
+                workspaceAccessToken,
+                sb3: {},
+                baseVersionRef: 'SCR-DEV-VER-1',
+                reason: KidscodeSaveReason.AUTOSAVE
+            })).rejects.toThrow('deleted');
+            expect(store.records.get('SCR-PROJ-DELETED').versionRef).toBe('SCR-DEV-VER-1');
+        });
+    });
 });

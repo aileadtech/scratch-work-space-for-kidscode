@@ -9,6 +9,7 @@ import SB3Downloader from '../../containers/sb3-downloader.jsx';
 import {MenuItem, MenuSection} from '../menu/menu.jsx';
 import MenuBarMenu from '../menu-bar/menu-bar-menu.jsx';
 import useMenuNavigation from '../../hooks/use-menu-navigation';
+import {useKidscodeWorkspaceSession} from '../../contexts/kidscode-workspace-session-context.jsx';
 
 import dropdownCaret from '../menu-bar/dropdown-caret.svg';
 import projectIcon from './icon--project.svg';
@@ -22,6 +23,10 @@ import {
     KidscodeWorkspaceState,
     KidscodeWorkspaceStates
 } from '../../lib/kidscode-workspace-state';
+import {
+    KIDSCODE_PROJECT_TITLE_MAX_LENGTH,
+    KidscodeProjectStatus
+} from '../../lib/kidscode-workspace-project-management/kidscode-workspace-project-management-contract';
 
 const messages = defineMessages({
     projectMenu: {
@@ -86,8 +91,48 @@ const messages = defineMessages({
     },
     deleteDialogMessage: {
         id: 'kidscode.deleteDraft.message',
-        defaultMessage: 'This will delete the current draft when project deletion is connected.',
+        defaultMessage: 'This will permanently delete the current draft. This cannot be undone.',
         description: 'Explanation in the Kidscode delete draft confirmation dialog'
+    },
+    renameFailed: {
+        id: 'kidscode.renameProject.failed',
+        defaultMessage: 'Something went wrong renaming this project. Please try again.',
+        description: 'Error shown in the Kidscode rename dialog when the rename could not be saved'
+    },
+    deleteFailed: {
+        id: 'kidscode.deleteDraft.failed',
+        defaultMessage: 'Something went wrong deleting this draft. Please try again.',
+        description: 'Error shown in the Kidscode delete draft dialog when the delete could not be completed'
+    },
+    duplicateDialogTitle: {
+        id: 'kidscode.duplicateProject.title',
+        defaultMessage: 'Duplicate project',
+        description: 'Title of the dialog shown while a Kidscode project is being duplicated'
+    },
+    duplicateInProgress: {
+        id: 'kidscode.duplicateProject.inProgress',
+        defaultMessage: 'Duplicating your project…',
+        description: 'Message shown while a Kidscode project is being duplicated'
+    },
+    duplicateSuccess: {
+        id: 'kidscode.duplicateProject.success',
+        defaultMessage: 'Your project was duplicated as “{title}”.',
+        description: 'Message shown after a Kidscode project has been duplicated, with the new copy\'s title'
+    },
+    duplicateFailed: {
+        id: 'kidscode.duplicateProject.failed',
+        defaultMessage: 'Something went wrong duplicating this project. Please try again.',
+        description: 'Error shown when a Kidscode project could not be duplicated'
+    },
+    tryAgain: {
+        id: 'kidscode.projectDialog.tryAgain',
+        defaultMessage: 'Try again',
+        description: 'Button for retrying a failed Kidscode project dialog action'
+    },
+    ok: {
+        id: 'kidscode.projectDialog.ok',
+        defaultMessage: 'OK',
+        description: 'Button for dismissing a Kidscode project dialog after its action finished'
     },
     save: {
         id: 'kidscode.menuBar.save',
@@ -111,7 +156,7 @@ const messages = defineMessages({
     }
 });
 
-const RenameProjectDialog = ({projectTitle, onCancel, onConfirm}) => {
+const RenameProjectDialog = ({projectTitle, hasError, isSubmitting, onCancel, onConfirm}) => {
     const intl = useIntl();
     const [nextTitle, setNextTitle] = useState(projectTitle);
     const trimmedTitle = nextTitle.trim();
@@ -121,8 +166,8 @@ const RenameProjectDialog = ({projectTitle, onCancel, onConfirm}) => {
     }, []);
     const handleSubmit = useCallback(event => {
         event.preventDefault();
-        if (trimmedTitle) onConfirm(trimmedTitle);
-    }, [onConfirm, trimmedTitle]);
+        if (trimmedTitle && !isSubmitting) onConfirm(trimmedTitle);
+    }, [isSubmitting, onConfirm, trimmedTitle]);
 
     return (
         <Modal
@@ -147,11 +192,19 @@ const RenameProjectDialog = ({projectTitle, onCancel, onConfirm}) => {
                     aria-label={intl.formatMessage(messages.projectTitle)}
                     className={styles.titleInput}
                     id="kidscode-project-title"
-                    maxLength="100"
+                    maxLength={KIDSCODE_PROJECT_TITLE_MAX_LENGTH}
                     type="text"
                     value={nextTitle}
                     onChange={handleChange}
                 />
+                {hasError && (
+                    <p
+                        className={styles.dialogError}
+                        role="alert"
+                    >
+                        <FormattedMessage {...messages.renameFailed} />
+                    </p>
+                )}
                 <Box className={styles.dialogButtons}>
                     <button
                         className={styles.cancelButton}
@@ -162,7 +215,7 @@ const RenameProjectDialog = ({projectTitle, onCancel, onConfirm}) => {
                     </button>
                     <button
                         className={styles.confirmButton}
-                        disabled={!trimmedTitle}
+                        disabled={!trimmedTitle || isSubmitting}
                         type="submit"
                     >
                         <FormattedMessage {...messages.rename} />
@@ -174,12 +227,14 @@ const RenameProjectDialog = ({projectTitle, onCancel, onConfirm}) => {
 };
 
 RenameProjectDialog.propTypes = {
+    hasError: PropTypes.bool,
+    isSubmitting: PropTypes.bool,
     onCancel: PropTypes.func.isRequired,
     onConfirm: PropTypes.func.isRequired,
     projectTitle: PropTypes.string.isRequired
 };
 
-const DeleteDraftDialog = ({onCancel, onConfirm}) => {
+const DeleteDraftDialog = ({hasError, isSubmitting, onCancel, onConfirm}) => {
     const intl = useIntl();
     return (
         <Modal
@@ -192,6 +247,14 @@ const DeleteDraftDialog = ({onCancel, onConfirm}) => {
                 <p className={styles.deleteMessage}>
                     <FormattedMessage {...messages.deleteDialogMessage} />
                 </p>
+                {hasError && (
+                    <p
+                        className={styles.dialogError}
+                        role="alert"
+                    >
+                        <FormattedMessage {...messages.deleteFailed} />
+                    </p>
+                )}
                 <Box className={styles.dialogButtons}>
                     <button
                         className={styles.cancelButton}
@@ -202,6 +265,7 @@ const DeleteDraftDialog = ({onCancel, onConfirm}) => {
                     </button>
                     <button
                         className={classNames(styles.confirmButton, styles.deleteButton)}
+                        disabled={isSubmitting}
                         type="button"
                         onClick={onConfirm}
                     >
@@ -214,8 +278,71 @@ const DeleteDraftDialog = ({onCancel, onConfirm}) => {
 };
 
 DeleteDraftDialog.propTypes = {
+    hasError: PropTypes.bool,
+    isSubmitting: PropTypes.bool,
     onCancel: PropTypes.func.isRequired,
     onConfirm: PropTypes.func.isRequired
+};
+
+const DuplicateProjectDialog = ({duplicateTitle, hasError, isSubmitting, onCancel, onRetry}) => {
+    const intl = useIntl();
+    return (
+        <Modal
+            className={styles.dialog}
+            contentLabel={intl.formatMessage(messages.duplicateDialogTitle)}
+            id="kidscodeDuplicateProject"
+            onRequestClose={onCancel}
+        >
+            <Box className={styles.dialogBody}>
+                {isSubmitting ? (
+                    <p className={styles.duplicateMessage}>
+                        <FormattedMessage {...messages.duplicateInProgress} />
+                    </p>
+                ) : hasError ? (
+                    <p
+                        className={styles.dialogError}
+                        role="alert"
+                    >
+                        <FormattedMessage {...messages.duplicateFailed} />
+                    </p>
+                ) : (
+                    <p className={styles.duplicateMessage}>
+                        <FormattedMessage
+                            {...messages.duplicateSuccess}
+                            values={{title: duplicateTitle}}
+                        />
+                    </p>
+                )}
+                <Box className={styles.dialogButtons}>
+                    {hasError && (
+                        <button
+                            className={styles.cancelButton}
+                            type="button"
+                            onClick={onRetry}
+                        >
+                            <FormattedMessage {...messages.tryAgain} />
+                        </button>
+                    )}
+                    <button
+                        className={styles.confirmButton}
+                        disabled={isSubmitting}
+                        type="button"
+                        onClick={onCancel}
+                    >
+                        <FormattedMessage {...messages.ok} />
+                    </button>
+                </Box>
+            </Box>
+        </Modal>
+    );
+};
+
+DuplicateProjectDialog.propTypes = {
+    duplicateTitle: PropTypes.string,
+    hasError: PropTypes.bool,
+    isSubmitting: PropTypes.bool,
+    onCancel: PropTypes.func.isRequired,
+    onRetry: PropTypes.func.isRequired
 };
 
 const DownloadProjectMenuItem = ({
@@ -257,11 +384,23 @@ const KidscodeProjectMenu = ({
     onRenameProject,
     onReturnToLesson,
     onReturnToMyScratchProjects,
-    projectTitle
+    projectManagementStatus,
+    projectTitle,
+    workspaceState
 }) => {
     const intl = useIntl();
+    const session = useKidscodeWorkspaceSession();
+    // No session (e.g. before launch resolves) is treated as a draft rather than locking the
+    // menu down, matching every development launch fixture's initial status.
+    const projectStatus = session ? session.project.status : KidscodeProjectStatus.DRAFT;
+
     const [renameOpen, setRenameOpen] = useState(false);
+    const [renameError, setRenameError] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleteError, setDeleteError] = useState(false);
+    const [duplicateOpen, setDuplicateOpen] = useState(false);
+    const [duplicateError, setDuplicateError] = useState(false);
+    const [duplicateTitle, setDuplicateTitle] = useState(null);
     const {
         menuRef,
         isExpanded,
@@ -271,35 +410,77 @@ const KidscodeProjectMenu = ({
         handleOnClose
     } = useMenuNavigation({depth, isRtl});
 
+    const isDeleted = workspaceState === KidscodeWorkspaceState.PROJECT_DELETED || projectManagementStatus.deleted;
+    const anyActionInFlight = projectManagementStatus.isRenaming ||
+        projectManagementStatus.isDuplicating ||
+        projectManagementStatus.isDeleting;
+    // Conservative Phase 5 rule (see docs/SHARED-API-CONTRACT.md): rename and delete are only
+    // offered for draft projects, since neither has an agreed behaviour for submitted/
+    // changes-requested/approved projects yet. Duplicate is offered regardless of status, since it
+    // only ever creates a new independent draft copy and leaves the original untouched. All three
+    // are unavailable once the project has been deleted or another action is already in flight.
+    const canRename = !isDeleted && !anyActionInFlight && projectStatus === KidscodeProjectStatus.DRAFT;
+    const canDuplicate = !isDeleted && !anyActionInFlight;
+    const canDelete = !isDeleted && !anyActionInFlight && projectStatus === KidscodeProjectStatus.DRAFT;
+
     const handleRenameOpen = useCallback(event => {
         event.stopPropagation();
         handleOnClose();
+        setRenameError(false);
         setRenameOpen(true);
     }, [handleOnClose]);
     const handleRenameCancel = useCallback(() => {
         setRenameOpen(false);
     }, []);
     const handleRenameConfirm = useCallback(title => {
-        onRenameProject(title);
-        setRenameOpen(false);
+        setRenameError(false);
+        Promise.resolve(onRenameProject(title)).then(() => {
+            setRenameOpen(false);
+        }).catch(() => {
+            setRenameError(true);
+        });
     }, [onRenameProject]);
+
     const handleDeleteOpen = useCallback(event => {
         event.stopPropagation();
         handleOnClose();
+        setDeleteError(false);
         setDeleteOpen(true);
     }, [handleOnClose]);
     const handleDeleteCancel = useCallback(() => {
         setDeleteOpen(false);
     }, []);
     const handleDeleteConfirm = useCallback(() => {
-        onDeleteDraft();
-        setDeleteOpen(false);
+        setDeleteError(false);
+        Promise.resolve(onDeleteDraft()).then(() => {
+            setDeleteOpen(false);
+        }).catch(() => {
+            setDeleteError(true);
+        });
     }, [onDeleteDraft]);
+
+    const startDuplicate = useCallback(() => {
+        setDuplicateError(false);
+        Promise.resolve(onDuplicateProject()).then(data => {
+            setDuplicateTitle(data && data.title);
+        }).catch(() => {
+            setDuplicateError(true);
+        });
+    }, [onDuplicateProject]);
     const handleDuplicate = useCallback(event => {
         event.stopPropagation();
         handleOnClose();
-        onDuplicateProject();
-    }, [handleOnClose, onDuplicateProject]);
+        setDuplicateTitle(null);
+        setDuplicateOpen(true);
+        startDuplicate();
+    }, [handleOnClose, startDuplicate]);
+    const handleDuplicateCancel = useCallback(() => {
+        setDuplicateOpen(false);
+    }, []);
+    const handleDuplicateRetry = useCallback(() => {
+        startDuplicate();
+    }, [startDuplicate]);
+
     const handleReturnToLesson = useCallback(event => {
         event.stopPropagation();
         handleOnClose();
@@ -336,15 +517,19 @@ const KidscodeProjectMenu = ({
                 >
                     <MenuSection>
                         <MenuItem
+                            className={classNames({[styles.disabledMenuItem]: !canRename})}
                             isDataMenuItem
-                            onClick={handleRenameOpen}
+                            isDisabled={!canRename}
+                            onClick={canRename ? handleRenameOpen : undefined}
                             onParentKeyDown={handleKeyDownOpenMenu}
                         >
                             <FormattedMessage {...messages.rename} />
                         </MenuItem>
                         <MenuItem
+                            className={classNames({[styles.disabledMenuItem]: !canDuplicate})}
                             isDataMenuItem
-                            onClick={handleDuplicate}
+                            isDisabled={!canDuplicate}
+                            onClick={canDuplicate ? handleDuplicate : undefined}
                             onParentKeyDown={handleKeyDownOpenMenu}
                         >
                             <FormattedMessage {...messages.duplicate} />
@@ -358,9 +543,10 @@ const KidscodeProjectMenu = ({
                             />
                         )}</SB3Downloader>
                         <MenuItem
-                            className={styles.deleteMenuItem}
+                            className={classNames(styles.deleteMenuItem, {[styles.disabledMenuItem]: !canDelete})}
                             isDataMenuItem
-                            onClick={handleDeleteOpen}
+                            isDisabled={!canDelete}
+                            onClick={canDelete ? handleDeleteOpen : undefined}
                             onParentKeyDown={handleKeyDownOpenMenu}
                         >
                             <FormattedMessage {...messages.deleteDraft} />
@@ -386,6 +572,8 @@ const KidscodeProjectMenu = ({
             </button>
             {renameOpen && (
                 <RenameProjectDialog
+                    hasError={renameError}
+                    isSubmitting={projectManagementStatus.isRenaming}
                     projectTitle={projectTitle}
                     onCancel={handleRenameCancel}
                     onConfirm={handleRenameConfirm}
@@ -393,8 +581,19 @@ const KidscodeProjectMenu = ({
             )}
             {deleteOpen && (
                 <DeleteDraftDialog
+                    hasError={deleteError}
+                    isSubmitting={projectManagementStatus.isDeleting}
                     onCancel={handleDeleteCancel}
                     onConfirm={handleDeleteConfirm}
+                />
+            )}
+            {duplicateOpen && (
+                <DuplicateProjectDialog
+                    duplicateTitle={duplicateTitle}
+                    hasError={duplicateError}
+                    isSubmitting={projectManagementStatus.isDuplicating}
+                    onCancel={handleDuplicateCancel}
+                    onRetry={handleDuplicateRetry}
                 />
             )}
         </React.Fragment>
@@ -410,7 +609,23 @@ KidscodeProjectMenu.propTypes = {
     onRenameProject: PropTypes.func.isRequired,
     onReturnToLesson: PropTypes.func.isRequired,
     onReturnToMyScratchProjects: PropTypes.func.isRequired,
-    projectTitle: PropTypes.string.isRequired
+    projectManagementStatus: PropTypes.shape({
+        isRenaming: PropTypes.bool,
+        isDuplicating: PropTypes.bool,
+        isDeleting: PropTypes.bool,
+        deleted: PropTypes.bool
+    }),
+    projectTitle: PropTypes.string.isRequired,
+    workspaceState: PropTypes.oneOf(KidscodeWorkspaceStates)
+};
+
+KidscodeProjectMenu.defaultProps = {
+    projectManagementStatus: {
+        isRenaming: false,
+        isDuplicating: false,
+        isDeleting: false,
+        deleted: false
+    }
 };
 
 const KidscodeProjectActionButtons = ({

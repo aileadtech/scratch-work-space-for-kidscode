@@ -51,7 +51,6 @@ import {
     closeLoginMenu,
     loginMenuOpen
 } from '../../reducers/menus';
-import {setProjectTitle} from '../../reducers/project-title';
 
 import collectMetadata from '../../lib/collect-metadata';
 import {PLATFORM} from '../../lib/platform';
@@ -175,7 +174,6 @@ class MenuBar extends React.Component {
             'handleClickNew',
             'handleClickSeeCommunity',
             'handleClickShare',
-            'handleRenameProject',
             'handleSetMode',
             'handleKeyPress',
             'handleRestoreOption',
@@ -257,10 +255,6 @@ class MenuBar extends React.Component {
 
             this.props.onSetTimeTravelMode(mode);
         };
-    }
-    handleRenameProject (title) {
-        this.props.onSetProjectTitle(title);
-        this.props.onRenameProject(title);
     }
     handleRestoreOption (restoreFun) {
         return () => {
@@ -416,10 +410,12 @@ class MenuBar extends React.Component {
                             <KidscodeProjectMenu
                                 getSaveToComputerHandler={this.getSaveToComputerHandler}
                                 isRtl={this.props.isRtl}
+                                projectManagementStatus={this.props.kidscodeProjectManagementStatus}
                                 projectTitle={this.props.projectTitle}
+                                workspaceState={this.props.kidscodeWorkspaceState}
                                 onDeleteDraft={this.props.onDeleteDraft}
                                 onDuplicateProject={this.props.onDuplicateProject}
-                                onRenameProject={this.handleRenameProject}
+                                onRenameProject={this.props.onRenameProject}
                                 onReturnToLesson={this.props.onReturnToLesson}
                                 onReturnToMyScratchProjects={this.props.onReturnToMyScratchProjects}
                             />
@@ -755,6 +751,12 @@ MenuBar.propTypes = {
     isShowingProject: PropTypes.bool,
     isTotallyNormal: PropTypes.bool,
     isUpdating: PropTypes.bool,
+    kidscodeProjectManagementStatus: PropTypes.shape({
+        isRenaming: PropTypes.bool,
+        isDuplicating: PropTypes.bool,
+        isDeleting: PropTypes.bool,
+        deleted: PropTypes.bool
+    }),
     kidscodeProjectTitle: PropTypes.string,
     kidscodeStudentName: PropTypes.string,
     kidscodeWorkspaceState: PropTypes.oneOf(KidscodeWorkspaceStates),
@@ -796,7 +798,6 @@ MenuBar.propTypes = {
     onReturnToMyScratchProjects: PropTypes.func,
     onSaveProject: PropTypes.func,
     onSeeCommunity: PropTypes.func,
-    onSetProjectTitle: PropTypes.func,
     onSetTimeTravelMode: PropTypes.func,
     onShare: PropTypes.func,
     onStartSelectingFileUpload: PropTypes.func,
@@ -891,7 +892,6 @@ const mapDispatchToProps = (dispatch, ownProps) => ({
     onClickRemix: () => dispatch(remixProject()),
     onRequestCloseLogin: () => dispatch(closeLoginMenu()),
     onSeeCommunity: ownProps.onSeeCommunity ?? (() => dispatch(setPlayer(true))),
-    onSetProjectTitle: title => dispatch(setProjectTitle(title)),
     onSetTimeTravelMode: mode => dispatch(setTimeTravel(mode))
 });
 

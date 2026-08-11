@@ -24,6 +24,16 @@ const requireWorkspaceAccessToken = workspaceAccessToken => {
     }
 };
 
+// Defense in depth: the Workspace already blocks Save/autosave client-side as soon as a delete
+// succeeds (see KidscodeWorkspaceProjectManagementHOC), but a deleted project's record is checked
+// here too, since this store is shared with the Phase 5 project-management adapter and a stale
+// in-memory Workspace session should not be able to resurrect a deleted draft by saving over it.
+const requireNotDeleted = record => {
+    if (record && record.deletedAt) {
+        throw new Error('This project has been deleted and can no longer be saved.');
+    }
+};
+
 /**
  * Create the development-only mock persistence adapter. It behaves like the future Laravel
  * adapter's request/response shape (see docs/SHARED-API-CONTRACT.md) but persists to a
@@ -61,6 +71,8 @@ const createKidscodeDevelopmentPersistenceAdapter = ({
             }
 
             return Promise.resolve(store.getProject(projectRef)).then(record => {
+                requireNotDeleted(record);
+
                 if (record) {
                     return {
                         project_ref: projectRef,
@@ -98,6 +110,8 @@ const createKidscodeDevelopmentPersistenceAdapter = ({
             }
 
             return Promise.resolve(store.getProject(projectRef)).then(existingRecord => {
+                requireNotDeleted(existingRecord);
+
                 const versionNumber = (existingRecord ? existingRecord.versionNumber : 0) + 1;
                 const record = {
                     projectRef,

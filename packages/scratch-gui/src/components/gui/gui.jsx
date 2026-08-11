@@ -162,6 +162,7 @@ const GUIComponent = props => {
         isShared,
         isTelemetryEnabled,
         isTotallyNormal,
+        kidscodeProjectManagementStatus,
         kidscodeProjectTitle,
         kidscodeStudentName,
         kidscodeWorkspaceState,
@@ -382,6 +383,7 @@ const GUIComponent = props => {
                             hasActiveMembership={hasActiveMembership}
                             isShared={isShared}
                             isTotallyNormal={isTotallyNormal}
+                            kidscodeProjectManagementStatus={kidscodeProjectManagementStatus}
                             kidscodeProjectTitle={kidscodeProjectTitle}
                             kidscodeStudentName={kidscodeStudentName}
                             kidscodeWorkspaceState={kidscodeWorkspaceState}
@@ -658,6 +660,12 @@ GUIComponent.propTypes = {
     isRtl: PropTypes.bool,
     isShared: PropTypes.bool,
     isTotallyNormal: PropTypes.bool,
+    kidscodeProjectManagementStatus: PropTypes.shape({
+        isRenaming: PropTypes.bool,
+        isDuplicating: PropTypes.bool,
+        isDeleting: PropTypes.bool,
+        deleted: PropTypes.bool
+    }),
     kidscodeProjectTitle: PropTypes.string,
     kidscodeStudentName: PropTypes.string,
     kidscodeWorkspaceState: PropTypes.oneOf(KidscodeWorkspaceStates),

@@ -58,7 +58,7 @@ describe('KidscodeWorkspacePersistenceHOC', () => {
     let observedStates;
     let Probe;
 
-    const mountComponent = ({session, adapter, debounceMs = 20}) => {
+    const mountComponent = ({session, adapter, debounceMs = 20, projectDeleted = false}) => {
         const KidscodeWorkspacePersistence = KidscodeWorkspacePersistenceHOC(Probe);
         return render(
             <KidscodeWorkspaceSessionProvider session={session}>
@@ -66,6 +66,7 @@ describe('KidscodeWorkspacePersistenceHOC', () => {
                     store={store}
                     vm={vm}
                     kidscodeAutosaveDebounceMs={debounceMs}
+                    kidscodeProjectDeleted={projectDeleted}
                     kidscodeWorkspacePersistenceAdapter={adapter}
                     kidscodeWorkspaceState={null}
                 />
@@ -368,5 +369,39 @@ describe('KidscodeWorkspacePersistenceHOC', () => {
         global.__lastProbeProps.onSaveProject();
         await waitFor(() => expect(adapter.saveProject).toHaveBeenCalledTimes(1));
         expect(adapter.saveProject).toHaveBeenCalledWith(expect.objectContaining({baseVersionRef: 'SCR-DEV-VER-5'}));
+    });
+
+    // Set by KidscodeWorkspaceProjectManagementHOC (Phase 5) once a delete succeeds; save and
+    // autosave must both stop for the deleted project's remaining session lifetime.
+    describe('kidscodeProjectDeleted', () => {
+        test('blocks a manual save', async () => {
+            const session = buildSession();
+            const adapter = createAdapter({
+                loadResult: {project_ref: session.project.project_ref, source: 'blank', version_ref: null, sb3: null}
+            });
+
+            mountComponent({session, adapter, projectDeleted: true});
+            await waitFor(() =>
+                expect(observedStates[observedStates.length - 1]).toBe(KidscodeWorkspaceState.SAVED));
+
+            global.__lastProbeProps.onSaveProject();
+            await flushPromises();
+            expect(adapter.saveProject).not.toHaveBeenCalled();
+        });
+
+        test('blocks autosave triggered by a VM project change', async () => {
+            const session = buildSession();
+            const adapter = createAdapter({
+                loadResult: {project_ref: session.project.project_ref, source: 'blank', version_ref: null, sb3: null}
+            });
+
+            mountComponent({session, adapter, projectDeleted: true, debounceMs: 10});
+            await waitFor(() =>
+                expect(observedStates[observedStates.length - 1]).toBe(KidscodeWorkspaceState.SAVED));
+
+            vm.emit('PROJECT_CHANGED');
+            await wait(20);
+            expect(adapter.saveProject).not.toHaveBeenCalled();
+        });
     });
 });

@@ -96,6 +96,16 @@ const messages = defineMessages({
         id: 'kidscode.workspaceState.corruptedProjectAction',
         defaultMessage: 'Return to My Scratch Projects',
         description: 'Button shown when a Kidscode project is corrupted'
+    },
+    projectDeletedTitle: {
+        id: 'kidscode.workspaceState.projectDeletedTitle',
+        defaultMessage: 'Draft Deleted',
+        description: 'Heading shown after a Kidscode project draft has been deleted'
+    },
+    projectDeletedDescription: {
+        id: 'kidscode.workspaceState.projectDeletedDescription',
+        defaultMessage: 'This draft has been deleted and can no longer be edited or saved.',
+        description: 'Explanation shown after a Kidscode project draft has been deleted'
     }
 });
 
@@ -204,6 +214,10 @@ const blockingStateMessages = {
         title: messages.corruptedProjectTitle,
         description: messages.corruptedProjectDescription,
         action: messages.corruptedProjectAction
+    },
+    [KidscodeWorkspaceState.PROJECT_DELETED]: {
+        title: messages.projectDeletedTitle,
+        description: messages.projectDeletedDescription
     }
 };
 

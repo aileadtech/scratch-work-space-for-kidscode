@@ -31,6 +31,7 @@ const KidscodeWorkspacePersistenceHOC = WrappedComponent => {
         const {
             isShowingProject,
             kidscodeAutosaveDebounceMs,
+            kidscodeProjectDeleted,
             kidscodeWorkspacePersistenceAdapter,
             kidscodeWorkspaceState: launchWorkspaceState,
             onSaveProject: fallbackOnSaveProject,
@@ -64,7 +65,7 @@ const KidscodeWorkspacePersistenceHOC = WrappedComponent => {
         // queues the newest reason); an edit that lands while the save is in flight is detected
         // via changeGenerationRef and keeps the Workspace at Unsaved instead of a stale Saved.
         const attemptSave = useCallback(reason => {
-            if (!hasLoadedContentRef.current || !session) return;
+            if (!hasLoadedContentRef.current || !session || kidscodeProjectDeleted) return;
             if (saveInFlightRef.current) {
                 pendingSaveReasonRef.current = reason === KidscodeSaveReason.MANUAL ?
                     KidscodeSaveReason.MANUAL :
@@ -111,7 +112,7 @@ const KidscodeWorkspacePersistenceHOC = WrappedComponent => {
                     pendingSaveReasonRef.current = null;
                     setContentState(KidscodeWorkspaceState.SAVE_FAILED);
                 });
-        }, [adapter, clearAutoSaveTimer, onSetProjectUnchanged, session, vm]);
+        }, [adapter, clearAutoSaveTimer, kidscodeProjectDeleted, onSetProjectUnchanged, session, vm]);
 
         const markLoaded = useCallback(versionRef => {
             latestVersionRef.current = versionRef;
@@ -155,7 +156,7 @@ const KidscodeWorkspacePersistenceHOC = WrappedComponent => {
             }
             const handleProjectChanged = () => {
                 changeGenerationRef.current += 1;
-                if (!hasLoadedContentRef.current) return;
+                if (!hasLoadedContentRef.current || kidscodeProjectDeleted) return;
                 clearAutoSaveTimer();
                 autoSaveTimerRef.current = setTimeout(() => {
                     autoSaveTimerRef.current = null;
@@ -167,7 +168,7 @@ const KidscodeWorkspacePersistenceHOC = WrappedComponent => {
                 vm.removeListener('PROJECT_CHANGED', handleProjectChanged);
                 clearAutoSaveTimer();
             };
-        }, [attemptSave, clearAutoSaveTimer, kidscodeAutosaveDebounceMs, vm]);
+        }, [attemptSave, clearAutoSaveTimer, kidscodeAutosaveDebounceMs, kidscodeProjectDeleted, vm]);
 
         const handleManualSave = useCallback(() => {
             if (!session) {
@@ -205,6 +206,7 @@ const KidscodeWorkspacePersistenceHOC = WrappedComponent => {
     KidscodeWorkspacePersistenceComponent.propTypes = {
         isShowingProject: PropTypes.bool,
         kidscodeAutosaveDebounceMs: PropTypes.number,
+        kidscodeProjectDeleted: PropTypes.bool,
         kidscodeWorkspacePersistenceAdapter: PropTypes.shape({
             loadProject: PropTypes.func.isRequired,
             saveProject: PropTypes.func.isRequired
@@ -217,6 +219,7 @@ const KidscodeWorkspacePersistenceHOC = WrappedComponent => {
     };
     KidscodeWorkspacePersistenceComponent.defaultProps = {
         kidscodeAutosaveDebounceMs: KIDSCODE_AUTOSAVE_DEBOUNCE_MS,
+        kidscodeProjectDeleted: false,
         kidscodeWorkspaceState: null,
         onSaveProject: () => {}
     };
