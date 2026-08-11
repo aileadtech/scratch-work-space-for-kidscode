@@ -4,7 +4,8 @@ const KidscodeLaunchType = Object.freeze({
     NEW_INDEPENDENT: 'new_independent',
     EXISTING_INDEPENDENT: 'existing_independent',
     NEW_LESSON: 'new_lesson',
-    EXISTING_LESSON: 'existing_lesson'
+    EXISTING_LESSON: 'existing_lesson',
+    REVIEW: 'review'
 });
 
 const KidscodeLaunchTypes = Object.values(KidscodeLaunchType);
@@ -22,8 +23,12 @@ const createSuccessFixture = ({
     lesson,
     launchType,
     projectRef,
+    projectStatus = 'draft',
     projectTitle,
     projectType,
+    review = null,
+    reviewFeedback = null,
+    role = 'student',
     sessionRef
 }) => ({
     success: true,
@@ -31,6 +36,7 @@ const createSuccessFixture = ({
         session_ref: sessionRef,
         expires_at: '2099-08-10T15:00:00Z',
         workspace_access_token: `DEVELOPMENT_WORKSPACE_TOKEN_${sessionRef}`,
+        role,
         student: {
             display_name: 'Adewale'
         },
@@ -38,12 +44,14 @@ const createSuccessFixture = ({
             project_ref: projectRef,
             title: projectTitle,
             project_type: projectType,
-            status: 'draft'
+            status: projectStatus
         },
         assignment,
         course,
         lesson,
         launch_type: launchType,
+        review,
+        review_feedback: reviewFeedback,
         return_to: {
             type: projectType === 'lesson' ? 'lesson' : 'projects',
             url: projectType === 'lesson' ? '/lessons' : '/scratch-projects'
@@ -66,6 +74,19 @@ const KidscodeDevelopmentProjectManagementFixtureProjectRef = Object.freeze({
     RENAME_FAILURE: 'SCR-PROJ-DEVFAILRENAME',
     DUPLICATE_FAILURE: 'SCR-PROJ-DEVFAILDUP',
     DELETE_FAILURE: 'SCR-PROJ-DEVFAILDEL'
+});
+
+const KidscodeDevelopmentSubmissionFixtureProjectRef = Object.freeze({
+    SUBMIT_FAILURE: 'SCR-PROJ-DEVFAILSUBMIT'
+});
+
+const KidscodeDevelopmentSubmissionFixtureSubmissionRef = Object.freeze({
+    SUBMITTED: 'SCR-SUB-DEV-REVIEW-FIXTURE',
+    FILE_UNAVAILABLE: 'SCR-SUB-DEVUNAVAILABLE',
+    CORRUPTED_FILE: 'SCR-SUB-DEVCORRUPT',
+    ACCESS_DENIED: 'SCR-SUB-DEVDENIED',
+    APPROVE_FAILURE: 'SCR-SUB-DEVFAILAPPROVE',
+    REQUEST_CHANGES_FAILURE: 'SCR-SUB-DEVFAILCHANGES'
 });
 
 const lessonContext = {
@@ -175,6 +196,161 @@ const developmentFixtures = {
         projectType: 'independent',
         sessionRef: 'SCR-SESSION-DEVFAILDEL'
     }),
+    'demo-submit-failure': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.EXISTING_INDEPENDENT,
+        projectRef: KidscodeDevelopmentSubmissionFixtureProjectRef.SUBMIT_FAILURE,
+        projectTitle: 'Submission Failure Demo',
+        projectType: 'independent',
+        sessionRef: 'SCR-SESSION-DEVFAILSUBMIT'
+    }),
+    'demo-changes-requested': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.EXISTING_INDEPENDENT,
+        projectRef: 'SCR-PROJ-DEVCHANGES',
+        projectStatus: 'changes_requested',
+        projectTitle: 'Changes Requested Demo',
+        projectType: 'independent',
+        reviewFeedback: {
+            submission_ref: 'SCR-SUB-DEVCHANGES-1',
+            submitted_version_ref: 'SCR-SUB-VER-DEVCHANGES-1',
+            feedback: 'Add a loop so the sprite repeats its movement.',
+            reviewed_at: '2026-08-11T12:00:00Z'
+        },
+        sessionRef: 'SCR-SESSION-DEVCHANGES'
+    }),
+    'demo-approved': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.EXISTING_INDEPENDENT,
+        projectRef: 'SCR-PROJ-DEVAPPROVED',
+        projectStatus: 'approved',
+        projectTitle: 'Approved Project Demo',
+        projectType: 'independent',
+        sessionRef: 'SCR-SESSION-DEVAPPROVED'
+    }),
+    'demo-review-submitted': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.REVIEW,
+        projectRef: 'SCR-PROJ-DEVREVIEW',
+        projectStatus: 'submitted',
+        projectTitle: 'Tutor Review Demo',
+        projectType: 'independent',
+        review: {
+            submission_ref: KidscodeDevelopmentSubmissionFixtureSubmissionRef.SUBMITTED,
+            submitted_version_ref: 'SCR-SUB-VER-DEV-REVIEW-FIXTURE',
+            submitted_at: '2026-08-11T12:00:00Z'
+        },
+        role: 'tutor',
+        sessionRef: 'SCR-SESSION-DEVREVIEW'
+    }),
+    'demo-review-latest': createSuccessFixture({
+        ...lessonContext,
+        launchType: KidscodeLaunchType.REVIEW,
+        projectRef: 'SCR-PROJ-X82AB',
+        projectStatus: 'submitted',
+        projectTitle: 'Make the Cat Walk',
+        projectType: 'lesson',
+        review: {
+            submission_ref: KidscodeDevelopmentSubmissionFixtureSubmissionRef.SUBMITTED,
+            submitted_version_ref: 'SCR-SUB-VER-DEV-REVIEW-FIXTURE',
+            submitted_at: '2026-08-11T12:00:00Z'
+        },
+        role: 'tutor',
+        sessionRef: 'SCR-SESSION-DEVREVIEWLATEST'
+    }),
+    'demo-review-unavailable': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.REVIEW,
+        projectRef: 'SCR-PROJ-DEVUNAVAILABLEREVIEW',
+        projectStatus: 'submitted',
+        projectTitle: 'Unavailable Submission Demo',
+        projectType: 'independent',
+        review: {
+            submission_ref: KidscodeDevelopmentSubmissionFixtureSubmissionRef.FILE_UNAVAILABLE,
+            submitted_version_ref: 'SCR-SUB-VER-DEV-REVIEW-FIXTURE',
+            submitted_at: '2026-08-11T12:00:00Z'
+        },
+        role: 'tutor',
+        sessionRef: 'SCR-SESSION-DEVUNAVAILABLEREVIEW'
+    }),
+    'demo-review-corrupted': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.REVIEW,
+        projectRef: 'SCR-PROJ-DEVCORRUPTREVIEW',
+        projectStatus: 'submitted',
+        projectTitle: 'Corrupted Submission Demo',
+        projectType: 'independent',
+        review: {
+            submission_ref: KidscodeDevelopmentSubmissionFixtureSubmissionRef.CORRUPTED_FILE,
+            submitted_version_ref: 'SCR-SUB-VER-DEV-REVIEW-FIXTURE',
+            submitted_at: '2026-08-11T12:00:00Z'
+        },
+        role: 'tutor',
+        sessionRef: 'SCR-SESSION-DEVCORRUPTREVIEW'
+    }),
+    'demo-review-denied': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.REVIEW,
+        projectRef: 'SCR-PROJ-DEVDENIEDREVIEW',
+        projectStatus: 'submitted',
+        projectTitle: 'Review Access Denied Demo',
+        projectType: 'independent',
+        review: {
+            submission_ref: KidscodeDevelopmentSubmissionFixtureSubmissionRef.ACCESS_DENIED,
+            submitted_version_ref: 'SCR-SUB-VER-DEV-REVIEW-FIXTURE',
+            submitted_at: '2026-08-11T12:00:00Z'
+        },
+        role: 'tutor',
+        sessionRef: 'SCR-SESSION-DEVDENIEDREVIEW'
+    }),
+    'demo-review-approve-failure': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.REVIEW,
+        projectRef: 'SCR-PROJ-DEVREVIEW',
+        projectStatus: 'submitted',
+        projectTitle: 'Approve Failure Demo',
+        projectType: 'independent',
+        review: {
+            submission_ref: KidscodeDevelopmentSubmissionFixtureSubmissionRef.APPROVE_FAILURE,
+            submitted_version_ref: 'SCR-SUB-VER-DEV-REVIEW-FIXTURE',
+            submitted_at: '2026-08-11T12:00:00Z'
+        },
+        role: 'tutor',
+        sessionRef: 'SCR-SESSION-DEVFAILAPPROVE'
+    }),
+    'demo-review-request-changes-failure': createSuccessFixture({
+        assignment: null,
+        course: null,
+        lesson: null,
+        launchType: KidscodeLaunchType.REVIEW,
+        projectRef: 'SCR-PROJ-DEVREVIEW',
+        projectStatus: 'submitted',
+        projectTitle: 'Request Changes Failure Demo',
+        projectType: 'independent',
+        review: {
+            submission_ref: KidscodeDevelopmentSubmissionFixtureSubmissionRef.REQUEST_CHANGES_FAILURE,
+            submitted_version_ref: 'SCR-SUB-VER-DEV-REVIEW-FIXTURE',
+            submitted_at: '2026-08-11T12:00:00Z'
+        },
+        role: 'tutor',
+        sessionRef: 'SCR-SESSION-DEVFAILCHANGES'
+    }),
     'demo-expired': {
         success: false,
         error: {
@@ -236,7 +412,7 @@ const validateKidscodeLaunchResponse = response => {
 
     const {data} = response;
     const hasRequiredStrings = data &&
-        ['session_ref', 'expires_at', 'workspace_access_token', 'launch_type'].every(key =>
+        ['session_ref', 'expires_at', 'workspace_access_token', 'launch_type', 'role'].every(key =>
             typeof data[key] === 'string' && data[key].length > 0
         ) &&
         data.student && typeof data.student.display_name === 'string' && data.student.display_name.length > 0 &&
@@ -257,9 +433,18 @@ const validateKidscodeLaunchResponse = response => {
         return invalidResponse('The workspace launch resolver returned an unsupported launch type.');
     }
 
-    const expectedProjectType = data.launch_type.endsWith('_lesson') ? 'lesson' : 'independent';
-    if (data.project.project_type !== expectedProjectType) {
+    const expectedProjectType = data.launch_type === KidscodeLaunchType.REVIEW ?
+        data.project.project_type :
+        (data.launch_type.endsWith('_lesson') ? 'lesson' : 'independent');
+    if (!['lesson', 'independent'].includes(expectedProjectType) || data.project.project_type !== expectedProjectType) {
         return invalidResponse('The workspace launch type does not match the project type.');
+    }
+
+    if (data.launch_type === KidscodeLaunchType.REVIEW &&
+        (!data.review || !['submission_ref', 'submitted_version_ref', 'submitted_at'].every(key =>
+            typeof data.review[key] === 'string' && data.review[key].length > 0
+        ))) {
+        return invalidResponse('The workspace review launch is missing submitted version context.');
     }
 
     return response;
@@ -268,14 +453,21 @@ const validateKidscodeLaunchResponse = response => {
 // Applies the development project-management store's current title onto a launch fixture's
 // response, without mutating the shared fixture object (developmentFixtures is a module-level
 // singleton reused by every call).
-const withDevelopmentTitleOverride = (fixture, title) => ({
+const withDevelopmentProjectOverride = (fixture, record, submission) => ({
     ...fixture,
     data: {
         ...fixture.data,
         project: {
             ...fixture.data.project,
-            title
-        }
+            title: record.title || fixture.data.project.title,
+            status: record.status || fixture.data.project.status
+        },
+        review: submission ? {
+            submission_ref: submission.submissionRef,
+            submitted_version_ref: submission.submittedVersionRef,
+            submitted_at: submission.submittedAt
+        } : fixture.data.review,
+        review_feedback: record.reviewFeedback || fixture.data.review_feedback
     }
 });
 
@@ -318,7 +510,18 @@ const createDevelopmentMockLaunchResolver = ({
 
             Promise.resolve(store.getProject(fixture.data.project.project_ref))
                 .then(record => {
-                    resolve(record && record.title ? withDevelopmentTitleOverride(fixture, record.title) : fixture);
+                    if (!record) {
+                        resolve(fixture);
+                        return;
+                    }
+                    if (fixture.data.launch_type === KidscodeLaunchType.REVIEW && record.latestSubmissionRef &&
+                        store.getSubmission) {
+                        Promise.resolve(store.getSubmission(record.latestSubmissionRef))
+                            .then(submission => resolve(withDevelopmentProjectOverride(fixture, record, submission)))
+                            .catch(() => resolve(withDevelopmentProjectOverride(fixture, record)));
+                        return;
+                    }
+                    resolve(withDevelopmentProjectOverride(fixture, record));
                 })
                 // A development store read failure is not a reason to fail the whole launch demo;
                 // fall back to the static fixture title.
@@ -330,6 +533,8 @@ const createDevelopmentMockLaunchResolver = ({
 export {
     KidscodeDevelopmentPersistenceFixtureProjectRef,
     KidscodeDevelopmentProjectManagementFixtureProjectRef,
+    KidscodeDevelopmentSubmissionFixtureProjectRef,
+    KidscodeDevelopmentSubmissionFixtureSubmissionRef,
     KidscodeLaunchErrorCode,
     KidscodeLaunchType,
     KidscodeLaunchTypes,

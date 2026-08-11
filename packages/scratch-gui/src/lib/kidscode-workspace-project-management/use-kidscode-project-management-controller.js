@@ -31,7 +31,7 @@ const initialActionState = {
  *   succeeds, so the caller can update the visible/Redux title
  * @returns {object} the controller's callbacks and status
  */
-const useKidscodeProjectManagementController = ({adapter, session, projectTitle, vm, onProjectRenamed}) => {
+const useKidscodeProjectManagementController = ({adapter, session, projectTitle, readOnly, vm, onProjectRenamed}) => {
     const [status, setStatus] = useState(initialActionState);
     const renameInFlightRef = useRef(false);
     const duplicateInFlightRef = useRef(false);
@@ -45,6 +45,7 @@ const useKidscodeProjectManagementController = ({adapter, session, projectTitle,
 
     const renameProject = useCallback(title => {
         if (!session) return missingSessionError('renameProject');
+        if (readOnly) return Promise.reject(new Error('Project management is unavailable in review mode.'));
         if (renameInFlightRef.current) return Promise.reject(new Error('A rename is already in progress.'));
         renameInFlightRef.current = true;
         setStatus(previous => Object.assign({}, previous, {isRenaming: true}));
@@ -65,10 +66,11 @@ const useKidscodeProjectManagementController = ({adapter, session, projectTitle,
                 setStatus(previous => Object.assign({}, previous, {isRenaming: false}));
                 throw error;
             });
-    }, [adapter, onProjectRenamed, session]);
+    }, [adapter, onProjectRenamed, readOnly, session]);
 
     const duplicateProject = useCallback(() => {
         if (!session) return missingSessionError('duplicateProject');
+        if (readOnly) return Promise.reject(new Error('Project management is unavailable in review mode.'));
         if (duplicateInFlightRef.current) return Promise.reject(new Error('A duplicate is already in progress.'));
         duplicateInFlightRef.current = true;
         setStatus(previous => Object.assign({}, previous, {isDuplicating: true}));
@@ -94,10 +96,11 @@ const useKidscodeProjectManagementController = ({adapter, session, projectTitle,
                 setStatus(previous => Object.assign({}, previous, {isDuplicating: false}));
                 throw error;
             });
-    }, [adapter, projectTitle, session, vm]);
+    }, [adapter, projectTitle, readOnly, session, vm]);
 
     const deleteDraftProject = useCallback(() => {
         if (!session) return missingSessionError('deleteDraftProject');
+        if (readOnly) return Promise.reject(new Error('Project management is unavailable in review mode.'));
         if (deleteInFlightRef.current) return Promise.reject(new Error('A delete is already in progress.'));
         deleteInFlightRef.current = true;
         setStatus(previous => Object.assign({}, previous, {isDeleting: true}));
@@ -116,7 +119,7 @@ const useKidscodeProjectManagementController = ({adapter, session, projectTitle,
                 setStatus(previous => Object.assign({}, previous, {isDeleting: false}));
                 throw error;
             });
-    }, [adapter, session]);
+    }, [adapter, readOnly, session]);
 
     return {
         renameProject,

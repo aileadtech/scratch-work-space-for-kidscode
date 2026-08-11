@@ -1,6 +1,6 @@
 import React from 'react';
 import configureStore from 'redux-mock-store';
-import {render, waitFor} from '@testing-library/react';
+import {act, render, waitFor} from '@testing-library/react';
 import VM from '@scratch/scratch-vm';
 
 import {KidscodeWorkspaceSessionProvider} from '../../../src/contexts/kidscode-workspace-session-context.jsx';
@@ -58,7 +58,15 @@ describe('KidscodeWorkspacePersistenceHOC', () => {
     let observedStates;
     let Probe;
 
-    const mountComponent = ({session, adapter, debounceMs = 20, projectDeleted = false}) => {
+    const mountComponent = ({
+        session,
+        adapter,
+        debounceMs = 20,
+        projectDeleted = false,
+        projectReadOnly = false,
+        reviewMode = false,
+        onVersionChanged
+    }) => {
         const KidscodeWorkspacePersistence = KidscodeWorkspacePersistenceHOC(Probe);
         return render(
             <KidscodeWorkspaceSessionProvider session={session}>
@@ -67,8 +75,11 @@ describe('KidscodeWorkspacePersistenceHOC', () => {
                     vm={vm}
                     kidscodeAutosaveDebounceMs={debounceMs}
                     kidscodeProjectDeleted={projectDeleted}
+                    kidscodeProjectReadOnly={projectReadOnly}
+                    kidscodeReviewMode={reviewMode}
                     kidscodeWorkspacePersistenceAdapter={adapter}
                     kidscodeWorkspaceState={null}
+                    onKidscodeVersionChanged={onVersionChanged}
                 />
             </KidscodeWorkspaceSessionProvider>
         );
@@ -129,6 +140,61 @@ describe('KidscodeWorkspacePersistenceHOC', () => {
             workspaceAccessToken: session.workspace_access_token,
             launchType: session.launch_type
         });
+    });
+
+    test('reports the loaded version_ref to the submission controller seam', async () => {
+        const session = buildSession();
+        const onVersionChanged = jest.fn();
+        const adapter = createAdapter({loadResult: {
+            project_ref: session.project.project_ref,
+            source: 'saved',
+            version_ref: 'SCR-DEV-VER-7',
+            saved_at: 'x',
+            sb3: null
+        }});
+
+        mountComponent({session, adapter, onVersionChanged});
+
+        await waitFor(() => expect(onVersionChanged).toHaveBeenCalledWith('SCR-DEV-VER-7'));
+        expect(global.__lastProbeProps.kidscodeLatestVersionRef).toBe('SCR-DEV-VER-7');
+    });
+
+    test('review mode never loads or saves the working project', async () => {
+        const session = buildSession({launch_type: 'review'});
+        const adapter = createAdapter();
+        mountComponent({session, adapter, reviewMode: true, projectReadOnly: true});
+
+        await flushPromises();
+        expect(global.__lastProbeProps.kidscodeProjectReadOnly).toBe(true);
+        expect(global.__lastProbeProps.kidscodeReviewMode).toBe(true);
+        expect(adapter.loadProject).not.toHaveBeenCalled();
+        global.__lastProbeProps.onSaveProject();
+        vm.emit('PROJECT_CHANGED');
+        await wait(30);
+        expect(vm.saveProjectSb3).not.toHaveBeenCalled();
+        expect(adapter.saveProject).not.toHaveBeenCalled();
+    });
+
+    test('a submitted or approved student project loads for inspection but cannot save or autosave', async () => {
+        const session = buildSession({
+            project: Object.assign({}, buildSession().project, {status: 'submitted'})
+        });
+        const adapter = createAdapter({loadResult: {
+            project_ref: session.project.project_ref,
+            source: 'saved',
+            version_ref: 'SCR-DEV-VER-1',
+            saved_at: 'x',
+            sb3: null
+        }});
+        mountComponent({session, adapter, projectReadOnly: true});
+        await waitFor(() => expect(adapter.loadProject).toHaveBeenCalled());
+        expect(global.__lastProbeProps.kidscodeProjectReadOnly).toBe(true);
+
+        global.__lastProbeProps.onSaveProject();
+        vm.emit('PROJECT_CHANGED');
+        await wait(30);
+        expect(vm.saveProjectSb3).not.toHaveBeenCalled();
+        expect(adapter.saveProject).not.toHaveBeenCalled();
     });
 
     test('a blank result does not call vm.loadProject and still reaches Saved', async () => {
@@ -279,6 +345,43 @@ describe('KidscodeWorkspacePersistenceHOC', () => {
 
         await waitFor(() => expect(adapter.saveProject).toHaveBeenCalledTimes(1));
         expect(adapter.saveProject).toHaveBeenCalledWith(expect.objectContaining({reason: 'autosave'}));
+    });
+
+    test('entering submission read-only state cancels a pending autosave debounce', async () => {
+        const session = buildSession();
+        const adapter = createAdapter({
+            loadResult: {project_ref: session.project.project_ref, source: 'blank', version_ref: null, sb3: null},
+            saveResults: buildSaveResult(session, 'SCR-DEV-VER-1')
+        });
+        const KidscodeWorkspacePersistence = KidscodeWorkspacePersistenceHOC(Probe);
+        let setReadOnly;
+        const Harness = () => {
+            const [readOnly, setReadOnlyState] = React.useState(false);
+            setReadOnly = setReadOnlyState;
+            return (
+                <KidscodeWorkspacePersistence
+                    store={store}
+                    vm={vm}
+                    kidscodeAutosaveDebounceMs={30}
+                    kidscodeProjectReadOnly={readOnly}
+                    kidscodeWorkspacePersistenceAdapter={adapter}
+                    kidscodeWorkspaceState={null}
+                />
+            );
+        };
+        render(
+            <KidscodeWorkspaceSessionProvider session={session}>
+                <Harness />
+            </KidscodeWorkspaceSessionProvider>
+        );
+        await waitFor(() => expect(global.__lastProbeProps.kidscodeWorkspaceState)
+            .toBe(KidscodeWorkspaceState.SAVED));
+
+        vm.emit('PROJECT_CHANGED');
+        act(() => setReadOnly(true));
+        await wait(40);
+
+        expect(adapter.saveProject).not.toHaveBeenCalled();
     });
 
     test('concurrent saves are prevented: a manual save during an in-flight save is queued, not duplicated', async () => {

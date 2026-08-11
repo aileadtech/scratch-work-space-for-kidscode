@@ -33,6 +33,18 @@ KidscodeWorkspaceSessionProvider.propTypes = {
             status: PropTypes.string.isRequired,
             title: PropTypes.string.isRequired
         }).isRequired,
+        review: PropTypes.shape({
+            submission_ref: PropTypes.string.isRequired,
+            submitted_at: PropTypes.string.isRequired,
+            submitted_version_ref: PropTypes.string.isRequired
+        }),
+        review_feedback: PropTypes.shape({
+            feedback: PropTypes.string.isRequired,
+            reviewed_at: PropTypes.string.isRequired,
+            submission_ref: PropTypes.string.isRequired,
+            submitted_version_ref: PropTypes.string.isRequired
+        }),
+        role: PropTypes.string.isRequired,
         return_to: PropTypes.shape({
             type: PropTypes.string.isRequired,
             url: PropTypes.string.isRequired

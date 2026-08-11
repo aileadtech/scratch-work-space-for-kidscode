@@ -411,7 +411,9 @@ class MenuBar extends React.Component {
                                 getSaveToComputerHandler={this.getSaveToComputerHandler}
                                 isRtl={this.props.isRtl}
                                 projectManagementStatus={this.props.kidscodeProjectManagementStatus}
+                                projectStatus={this.props.kidscodeProjectStatus}
                                 projectTitle={this.props.projectTitle}
+                                reviewMode={this.props.kidscodeReviewMode}
                                 workspaceState={this.props.kidscodeWorkspaceState}
                                 onDeleteDraft={this.props.onDeleteDraft}
                                 onDuplicateProject={this.props.onDuplicateProject}
@@ -466,9 +468,16 @@ class MenuBar extends React.Component {
                     ) : null)}
                     {this.props.kidscodeProjectTitle && (
                         <KidscodeProjectActionButtons
+                            onApproveSubmission={this.props.onApproveSubmission}
+                            onRequestChanges={this.props.onRequestChanges}
                             onSaveProject={this.props.onSaveProject}
                             onSubmitProject={this.props.onSubmitProject}
                             onWorkspaceStateAction={this.props.onWorkspaceStateAction}
+                            projectReadOnly={this.props.kidscodeProjectReadOnly}
+                            projectStatus={this.props.kidscodeProjectStatus}
+                            reviewFeedback={this.props.kidscodeReviewFeedback}
+                            reviewMode={this.props.kidscodeReviewMode}
+                            submissionReviewStatus={this.props.kidscodeSubmissionReviewStatus}
                             workspaceState={this.props.kidscodeWorkspaceState}
                         />
                     )}
@@ -757,8 +766,13 @@ MenuBar.propTypes = {
         isDeleting: PropTypes.bool,
         deleted: PropTypes.bool
     }),
+    kidscodeProjectReadOnly: PropTypes.bool,
+    kidscodeProjectStatus: PropTypes.string,
     kidscodeProjectTitle: PropTypes.string,
+    kidscodeReviewFeedback: PropTypes.string,
+    kidscodeReviewMode: PropTypes.bool,
     kidscodeStudentName: PropTypes.string,
+    kidscodeSubmissionReviewStatus: PropTypes.object, // eslint-disable-line react/forbid-prop-types
     kidscodeWorkspaceState: PropTypes.oneOf(KidscodeWorkspaceStates),
     locale: PropTypes.string.isRequired,
     loginMenuOpen: PropTypes.bool,
@@ -769,6 +783,7 @@ MenuBar.propTypes = {
     mode220022BC: PropTypes.bool,
     modeNow: PropTypes.bool,
     onBackToKidscode: PropTypes.func,
+    onApproveSubmission: PropTypes.func,
     onClickAbout: PropTypes.oneOfType([
         PropTypes.func, // button mode: call this callback when the About button is clicked
         PropTypes.arrayOf( // menu mode: list of items in the About menu
@@ -794,6 +809,7 @@ MenuBar.propTypes = {
     onProjectTelemetryEvent: PropTypes.func,
     onRequestCloseLogin: PropTypes.func,
     onRenameProject: PropTypes.func,
+    onRequestChanges: PropTypes.func,
     onReturnToLesson: PropTypes.func,
     onReturnToMyScratchProjects: PropTypes.func,
     onSaveProject: PropTypes.func,
@@ -821,8 +837,10 @@ MenuBar.propTypes = {
 MenuBar.defaultProps = {
     logo: scratchLogo,
     onDeleteDraft: () => {},
+    onApproveSubmission: () => {},
     onDuplicateProject: () => {},
     onRenameProject: () => {},
+    onRequestChanges: () => Promise.resolve(),
     onReturnToLesson: () => {},
     onReturnToMyScratchProjects: () => {},
     onSaveProject: () => {},

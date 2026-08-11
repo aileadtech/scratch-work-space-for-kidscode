@@ -9,7 +9,9 @@ const KidscodeWorkspaceState = Object.freeze({
     ACCESS_BLOCKED: 'accessBlocked',
     CONNECTION_LOST: 'connectionLost',
     CORRUPTED_PROJECT: 'corruptedProject',
-    PROJECT_DELETED: 'projectDeleted'
+    PROJECT_DELETED: 'projectDeleted',
+    REVIEW_ACCESS_BLOCKED: 'reviewAccessBlocked',
+    CORRUPTED_SUBMISSION: 'corruptedSubmission'
 });
 
 const KidscodeWorkspaceStates = Object.values(KidscodeWorkspaceState);
@@ -23,7 +25,9 @@ const controlledPriorityStates = [
     KidscodeWorkspaceState.ACCESS_BLOCKED,
     KidscodeWorkspaceState.CONNECTION_LOST,
     KidscodeWorkspaceState.CORRUPTED_PROJECT,
-    KidscodeWorkspaceState.PROJECT_DELETED
+    KidscodeWorkspaceState.PROJECT_DELETED,
+    KidscodeWorkspaceState.REVIEW_ACCESS_BLOCKED,
+    KidscodeWorkspaceState.CORRUPTED_SUBMISSION
 ];
 
 // External transient, error, and blocking states take priority. Otherwise the
