@@ -391,6 +391,9 @@ const developmentFixtures = {
     }
 };
 
+const isDevelopmentLaunchFixtureToken = launchToken =>
+    launchToken === 'demo-offline' || Object.prototype.hasOwnProperty.call(developmentFixtures, launchToken);
+
 const readKidscodeLaunchToken = locationObject =>
     new URLSearchParams(locationObject.search).get('launch');
 
@@ -563,6 +566,7 @@ export {
     KidscodeLaunchType,
     KidscodeLaunchTypes,
     createDevelopmentMockLaunchResolver,
+    isDevelopmentLaunchFixtureToken,
     readKidscodeLaunchToken,
     removeKidscodeLaunchToken,
     validateKidscodeLaunchResponse

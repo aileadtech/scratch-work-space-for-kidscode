@@ -2,6 +2,7 @@ import {
     KidscodeLaunchErrorCode,
     KidscodeLaunchType,
     createDevelopmentMockLaunchResolver,
+    isDevelopmentLaunchFixtureToken,
     readKidscodeLaunchToken,
     removeKidscodeLaunchToken,
     validateKidscodeLaunchResponse
@@ -135,6 +136,12 @@ describe('Kidscode workspace launch resolver', () => {
     test('development mock cannot be created in production', () => {
         expect(() => createDevelopmentMockLaunchResolver({environment: 'production'}))
             .toThrow('cannot run in production');
+    });
+
+    test('identifies only preserved development fixture tokens', () => {
+        expect(isDevelopmentLaunchFixtureToken('demo-lesson')).toBe(true);
+        expect(isDevelopmentLaunchFixtureToken('demo-offline')).toBe(true);
+        expect(isDevelopmentLaunchFixtureToken('REAL_OPAQUE_TOKEN')).toBe(false);
     });
 
     test('validates review launch context without changing the four student launch types', async () => {

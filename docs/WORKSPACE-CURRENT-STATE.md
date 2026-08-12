@@ -5,7 +5,7 @@ bottom. It is not a historical changelog; keep it describing only the current st
 
 ## Repository state
 
-- Current main HEAD: `9ade0e701924d4c5fe3ae862b32609832b44ddf4`
+- Current main HEAD: `33ac2650093b859935db8c4445046987ea1897a7`
 - Current completed phases on main: 1–7
 - Next Workspace phase: Phase 8 — Production / Compliance
 
@@ -20,7 +20,7 @@ bottom. It is not a historical changelog; keep it describing only the current st
 | 5 | Project Management | COMPLETE |
 | 6 | Submission + Tutor Review | COMPLETE |
 | 7 | Navigation + Recovery | COMPLETE |
-| 8 | Production / Compliance | NOT STARTED / NEXT |
+| 8 | Production / Compliance | IN PROGRESS — Stage 1 Workspace integration implemented |
 | 9 | Final Verification | NOT STARTED |
 
 ## What works now
@@ -32,7 +32,8 @@ Share / See Project Page / Backpack removed from the Kidscode UI.
 
 **Phase 3** — one-time `?launch=` token; injected launch-resolver abstraction; runtime-only Workspace session;
 resolved role/student/project context; loading and fail-closed error states; development fixtures; production has no
-mock fallback.
+mock fallback. Phase 8A connects that seam to the real Laravel Stage 1 resolver through one centrally configured API
+base; exact development fixtures remain available, and production fails closed when its API base is missing.
 
 **Phase 4** — real `.sb3` serialization/load through the official VM exporter/importer; manual Save; debounced
 autosave with concurrency/stale-edit protection; development-only IndexedDB persistence; close/reopen restore;
@@ -102,6 +103,10 @@ stores; Submit updates them atomically while submissions remain immutable. Versi
 stale autosave from overwriting a successful Submit. Production selects rejecting unavailable adapters and never
 falls back to development data.
 
+The production launch resolver posts only the opaque launch token to Laravel API 11 with browser credentials
+omitted. It maps the Stage 1 student response into the existing session contract; all later adapters remain
+unavailable in production.
+
 ## Current sources of truth
 
 - **Launch/session data**: `KidscodeWorkspaceSessionProvider`, set once per resolved launch and kept in memory.
@@ -127,6 +132,7 @@ falls back to development data.
 - Tutor review cannot Save/autosave or mutate student project metadata, and missing/corrupted review content never
   falls back to a working project.
 - Development adapter factories reject production construction; production uses only unavailable adapters.
+- Production launch requires `KIDSCODE_WORKSPACE_API_BASE_URL`; it never defaults to localhost or a mock.
 - Navigation never reads a destination from the browser URL's query parameters, only from `session.return_to` or
   the injected recovery URL; both are validated (same-origin relative path, or an explicitly allowlisted absolute
   origin) before any navigation happens. Production has no configured recovery URL or allowed absolute origin yet,
@@ -134,8 +140,8 @@ falls back to development data.
 
 ## Backend integration still missing
 
-- **Phase 3**: Laravel launch resolver, now including `role`, `review`, `review_feedback`, and a `return_to.type`
-  restricted to `lesson`/`projects`/`review` where applicable.
+- **Phase 3 / Stage 1**: Workspace integration is implemented and verified through a real local-Workspace browser
+  launch against the TEST server.
 - **Phase 4**: Laravel working-project file load/save adapter.
 - **Phase 5**: Laravel rename/duplicate/delete adapter.
 - **Phase 6**: Laravel Submit endpoint/adapter; exact submitted-file load for review; Tutor review
@@ -144,12 +150,12 @@ falls back to development data.
   must configure the real Kidscode recovery URL and allowed absolute-origin allowlist (both currently empty/`null`
   in production).
 
-None of these endpoints exists yet. The full proposed request/response shapes are in
-`docs/SHARED-API-CONTRACT.md`.
+Laravel Stage 1 exists and is connected at the Workspace resolver seam. Stage 2+ Workspace production adapters are
+still intentionally unavailable. The request/response shapes are in `docs/SHARED-API-CONTRACT.md`.
 
 ## Next Workspace phase
 
-Phase 8 — Production / Compliance. Not started.
+Review and commit Phase 8A, then continue Phase 8 Production / Compliance in a separately scoped phase.
 
 ## Update rule
 
