@@ -420,6 +420,7 @@ class MenuBar extends React.Component {
                                 onRenameProject={this.props.onRenameProject}
                                 onReturnToLesson={this.props.onReturnToLesson}
                                 onReturnToMyScratchProjects={this.props.onReturnToMyScratchProjects}
+                                onReturnToTutorReview={this.props.onReturnToTutorReview}
                             />
                         )}
                         {this.props.kidscodeProjectTitle &&
@@ -812,6 +813,7 @@ MenuBar.propTypes = {
     onRequestChanges: PropTypes.func,
     onReturnToLesson: PropTypes.func,
     onReturnToMyScratchProjects: PropTypes.func,
+    onReturnToTutorReview: PropTypes.func,
     onSaveProject: PropTypes.func,
     onSeeCommunity: PropTypes.func,
     onSetTimeTravelMode: PropTypes.func,
@@ -843,6 +845,7 @@ MenuBar.defaultProps = {
     onRequestChanges: () => Promise.resolve(),
     onReturnToLesson: () => {},
     onReturnToMyScratchProjects: () => {},
+    onReturnToTutorReview: () => {},
     onSaveProject: () => {},
     onShare: () => {},
     onSubmitProject: () => {}

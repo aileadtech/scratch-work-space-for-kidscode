@@ -32,6 +32,7 @@ import DragLayer from '../../containers/drag-layer.jsx';
 import ConnectionModal from '../../containers/connection-modal.jsx';
 import TelemetryModal from '../telemetry-modal/telemetry-modal.jsx';
 import {KidscodeWorkspaceBlockingState} from '../kidscode-menu-bar/kidscode-workspace-state.jsx';
+import KidscodeNavigationConfirmDialog from '../kidscode-menu-bar/kidscode-navigation-confirm-dialog.jsx';
 
 import layout, {STAGE_SIZE_MODES} from '../../lib/layout-constants';
 import {resolveStageSize} from '../../lib/screen-utils';
@@ -162,6 +163,7 @@ const GUIComponent = props => {
         isShared,
         isTelemetryEnabled,
         isTotallyNormal,
+        kidscodeNavigationConfirm,
         kidscodeProjectManagementStatus,
         kidscodeProjectReadOnly,
         kidscodeProjectStatus,
@@ -178,10 +180,14 @@ const GUIComponent = props => {
         onApproveSubmission,
         onDeleteDraft,
         onDuplicateProject,
+        onKidscodeNavigationLeaveWithoutSaving,
+        onKidscodeNavigationSaveAndLeave,
+        onKidscodeNavigationStay,
         onRenameProject,
         onRequestChanges,
         onReturnToLesson,
         onReturnToMyScratchProjects,
+        onReturnToTutorReview,
         onSaveProject,
         onSetManualThumbnail,
         onSetManualThumbnailButtonClick,
@@ -325,6 +331,14 @@ const GUIComponent = props => {
                             onAction={onWorkspaceStateAction}
                         />
                     ) : null}
+                    {kidscodeNavigationConfirm ? (
+                        <KidscodeNavigationConfirmDialog
+                            reason={kidscodeNavigationConfirm.reason}
+                            onLeaveWithoutSaving={onKidscodeNavigationLeaveWithoutSaving}
+                            onSaveAndLeave={onKidscodeNavigationSaveAndLeave}
+                            onStay={onKidscodeNavigationStay}
+                        />
+                    ) : null}
                     {isCreating ? (
                         <Loader messageId="gui.loader.creating" />
                     ) : null}
@@ -416,6 +430,7 @@ const GUIComponent = props => {
                             onRequestChanges={onRequestChanges}
                             onReturnToLesson={onReturnToLesson}
                             onReturnToMyScratchProjects={onReturnToMyScratchProjects}
+                            onReturnToTutorReview={onReturnToTutorReview}
                             onSaveProject={onSaveProject}
                             onSeeCommunity={onSeeCommunity}
                             onShare={onShare}
@@ -674,6 +689,9 @@ GUIComponent.propTypes = {
     isRtl: PropTypes.bool,
     isShared: PropTypes.bool,
     isTotallyNormal: PropTypes.bool,
+    kidscodeNavigationConfirm: PropTypes.shape({
+        reason: PropTypes.oneOf(['unsaved', 'saving', 'saveFailed']).isRequired
+    }),
     kidscodeProjectManagementStatus: PropTypes.shape({
         isRenaming: PropTypes.bool,
         isDuplicating: PropTypes.bool,
@@ -695,10 +713,14 @@ GUIComponent.propTypes = {
     onApproveSubmission: PropTypes.func,
     onDeleteDraft: PropTypes.func,
     onDuplicateProject: PropTypes.func,
+    onKidscodeNavigationLeaveWithoutSaving: PropTypes.func,
+    onKidscodeNavigationSaveAndLeave: PropTypes.func,
+    onKidscodeNavigationStay: PropTypes.func,
     onRenameProject: PropTypes.func,
     onRequestChanges: PropTypes.func,
     onReturnToLesson: PropTypes.func,
     onReturnToMyScratchProjects: PropTypes.func,
+    onReturnToTutorReview: PropTypes.func,
     onSaveProject: PropTypes.func,
     onSetManualThumbnail: PropTypes.func,
     onSetManualThumbnailButtonClick: PropTypes.func,

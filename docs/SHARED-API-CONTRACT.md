@@ -571,3 +571,61 @@ request-changes failure. Fixture selection stays inside the development launch/s
 The development factory throws in production. Production selects
 `createUnavailableKidscodeWorkspaceSubmissionReviewAdapter`, whose four operations always reject. There is no
 real-API-failure-to-IndexedDB fallback.
+
+## Workspace Navigation and Recovery (Phase 7)
+
+Phase 7 defines how the Workspace safely returns a Student or Tutor to Kidscode, and how it recovers from Session
+Expired, Project Deleted, and other blocking states. It does not add any new backend endpoint: navigation is driven
+entirely by the `return_to` the Phase 3 launch response already returns, validated client-side before use. It does
+not change the Phase 3/4/5/6 request/response shapes above, with one narrow addition: `return_to.type` is now a
+restricted enum instead of an arbitrary string.
+
+### `return_to.type`
+
+```text
+lesson | projects | review
+```
+
+- `lesson` / `projects` — unchanged from Phase 3: a student launch's destination, chosen by `project.project_type`
+  (`lesson` → `lesson`, `independent` → `projects`).
+- `review` — new in Phase 7. Every `launch_type: "review"` (tutor) response now returns
+  `return_to: {type: "review", url: "..."}` pointing at the tutor's own submissions/review queue, regardless of the
+  underlying project's `project_type`. Before Phase 7, a review launch's `return_to` incorrectly reused the
+  student-facing `lesson`/`projects` destination; Phase 7 corrects this because a tutor must never be offered a
+  "Return to Lesson" or "Return to My Scratch Projects" control.
+- The Workspace rejects a launch response whose `return_to.type` is anything else (`INVALID_LAUNCH_RESPONSE`) before
+  a session is ever exposed to the editor. This is a client-side hardening beyond what Phase 3 originally validated;
+  it does not require a backend change since Laravel is expected to only ever send one of these three values.
+
+Backend must never send `type: "recovery"` — that value is Workspace-internal only (see below) and is rejected by
+the same validation.
+
+### Return destination validation
+
+The Workspace never trusts a destination merely because some payload contained a string, and never reads a
+destination from browser query parameters (`?return=`, `?lessonUrl=`, `?redirect=`, or similar are always ignored).
+The only trusted sources are `session.return_to` (from the validated launch response above) and the injected
+recovery URL described below. Every destination — whichever source it came from — passes through one client-side
+validator (`validateKidscodeReturnDestination`, `packages/scratch-gui/src/lib/kidscode-workspace-navigation/`)
+before any navigation happens:
+
+- A same-origin, path-only URL (e.g. `/lessons`) is always safe and always allowed.
+- An absolute `http(s)://` URL is allowed only if its origin is in an environment-configured allowlist; production
+  has no configured origin yet (empty allowlist, so no absolute URL is currently accepted there), matching the rest
+  of the Laravel integration still being outstanding. This allowlist is expected to be populated in Phase 8 once a
+  real Kidscode frontend origin exists.
+- `javascript:`, `data:`, protocol-relative (`//host/...`), and any other unrecognised shape are always rejected.
+
+A destination that fails validation is silently not navigated to (fail closed) rather than falling back to any
+guessed URL.
+
+### Recovery destination (no session)
+
+Session Expired (and any other state reached before a session is resolved) has no `session.return_to` to use. The
+Workspace instead uses a separately injected/configured recovery URL (`kidscodeWorkspaceRecoveryUrl`, wired in
+`playground/render-gui.jsx`) through the same validator above. Production defaults this to `null` until Phase 8
+configures a real one, so Session Expired recovery remains a dead end (button present, fail-closed) rather than a
+guess, exactly like the origin allowlist above. Development uses an explicit, clearly local-only value.
+
+This recovery URL is a Workspace-side configuration value, not part of the launch response — it exists precisely
+for the case where no launch response was ever successfully resolved.

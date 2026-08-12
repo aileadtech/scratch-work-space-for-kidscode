@@ -27,6 +27,8 @@ import {
     KIDSCODE_PROJECT_TITLE_MAX_LENGTH,
     KidscodeProjectStatus
 } from '../../lib/kidscode-workspace-project-management/kidscode-workspace-project-management-contract';
+import {KidscodeReturnDestinationType}
+    from '../../lib/kidscode-workspace-navigation/kidscode-workspace-navigation-contract';
 
 const messages = defineMessages({
     projectMenu: {
@@ -68,6 +70,11 @@ const messages = defineMessages({
         id: 'kidscode.menuBar.returnToProjects',
         defaultMessage: 'Return to My Scratch Projects',
         description: 'Menu item for returning to the student\'s Kidscode Scratch projects list'
+    },
+    returnToTutorReview: {
+        id: 'kidscode.menuBar.returnToTutorReview',
+        defaultMessage: 'Return to Tutor Review',
+        description: 'Menu item for returning a tutor to their Kidscode submissions/review queue'
     },
     renameDialogTitle: {
         id: 'kidscode.renameProject.title',
@@ -459,6 +466,7 @@ const KidscodeProjectMenu = ({
     onRenameProject,
     onReturnToLesson,
     onReturnToMyScratchProjects,
+    onReturnToTutorReview,
     projectManagementStatus,
     projectStatus: suppliedProjectStatus,
     projectTitle,
@@ -574,6 +582,19 @@ const KidscodeProjectMenu = ({
         handleOnClose();
         onReturnToMyScratchProjects();
     }, [handleOnClose, onReturnToMyScratchProjects]);
+    const handleReturnToTutorReview = useCallback(event => {
+        event.stopPropagation();
+        handleOnClose();
+        onReturnToTutorReview();
+    }, [handleOnClose, onReturnToTutorReview]);
+
+    // Exactly one destination is ever valid for the current session (see
+    // docs/SHARED-API-CONTRACT.md, Workspace Navigation and Recovery), so only the single matching
+    // menu item is shown: the Tutor's own review destination in review mode, otherwise whichever
+    // destination the validated launch session's return_to.type names. No session (e.g. a moment
+    // before launch resolves) means no known destination yet, so no item renders rather than
+    // guessing one.
+    const returnDestinationType = session && session.return_to && session.return_to.type;
 
     return (
         <React.Fragment>
@@ -636,20 +657,31 @@ const KidscodeProjectMenu = ({
                         </MenuItem>
                     </MenuSection>
                     <MenuSection>
-                        <MenuItem
-                            isDataMenuItem
-                            onClick={handleReturnToLesson}
-                            onParentKeyDown={handleKeyDownOpenMenu}
-                        >
-                            <FormattedMessage {...messages.returnToLesson} />
-                        </MenuItem>
-                        <MenuItem
-                            isDataMenuItem
-                            onClick={handleReturnToProjects}
-                            onParentKeyDown={handleKeyDownOpenMenu}
-                        >
-                            <FormattedMessage {...messages.returnToProjects} />
-                        </MenuItem>
+                        {reviewMode ? (
+                            <MenuItem
+                                isDataMenuItem
+                                onClick={handleReturnToTutorReview}
+                                onParentKeyDown={handleKeyDownOpenMenu}
+                            >
+                                <FormattedMessage {...messages.returnToTutorReview} />
+                            </MenuItem>
+                        ) : returnDestinationType === KidscodeReturnDestinationType.LESSON ? (
+                            <MenuItem
+                                isDataMenuItem
+                                onClick={handleReturnToLesson}
+                                onParentKeyDown={handleKeyDownOpenMenu}
+                            >
+                                <FormattedMessage {...messages.returnToLesson} />
+                            </MenuItem>
+                        ) : returnDestinationType === KidscodeReturnDestinationType.PROJECTS ? (
+                            <MenuItem
+                                isDataMenuItem
+                                onClick={handleReturnToProjects}
+                                onParentKeyDown={handleKeyDownOpenMenu}
+                            >
+                                <FormattedMessage {...messages.returnToProjects} />
+                            </MenuItem>
+                        ) : null}
                     </MenuSection>
                 </MenuBarMenu>
             </button>
@@ -692,6 +724,7 @@ KidscodeProjectMenu.propTypes = {
     onRenameProject: PropTypes.func.isRequired,
     onReturnToLesson: PropTypes.func.isRequired,
     onReturnToMyScratchProjects: PropTypes.func.isRequired,
+    onReturnToTutorReview: PropTypes.func.isRequired,
     projectManagementStatus: PropTypes.shape({
         isRenaming: PropTypes.bool,
         isDuplicating: PropTypes.bool,
