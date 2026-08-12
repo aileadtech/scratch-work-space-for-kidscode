@@ -1,4 +1,15 @@
 import {createIndexedDbProjectStore} from './kidscode-workspace-persistence/kidscode-development-project-store';
+import {KidscodeReturnDestinationType} from './kidscode-workspace-navigation/kidscode-workspace-navigation-contract';
+
+// A launch response's return_to.type must be one of the destinations a real launch can produce.
+// KidscodeReturnDestinationType.RECOVERY is deliberately excluded: it is a client-side-only concept
+// for the injected/configured fallback used when there is no session at all (e.g. Session Expired),
+// never a value a launch response itself should be able to send.
+const KidscodeLaunchReturnDestinationTypes = [
+    KidscodeReturnDestinationType.LESSON,
+    KidscodeReturnDestinationType.PROJECTS,
+    KidscodeReturnDestinationType.REVIEW
+];
 
 const KidscodeLaunchType = Object.freeze({
     NEW_INDEPENDENT: 'new_independent',
@@ -52,10 +63,16 @@ const createSuccessFixture = ({
         launch_type: launchType,
         review,
         review_feedback: reviewFeedback,
-        return_to: {
-            type: projectType === 'lesson' ? 'lesson' : 'projects',
-            url: projectType === 'lesson' ? '/lessons' : '/scratch-projects'
-        }
+        // Tutor review launches return to the tutor's own submissions/review queue, never to the
+        // student-facing lesson or My Scratch Projects pages: a review-mode return_to always uses
+        // KidscodeReturnDestinationType.REVIEW regardless of the underlying project's type.
+        return_to: launchType === KidscodeLaunchType.REVIEW ?
+            {type: KidscodeReturnDestinationType.REVIEW, url: '/tutor/submissions'} :
+            {
+                type: projectType === 'lesson' ? KidscodeReturnDestinationType.LESSON :
+                    KidscodeReturnDestinationType.PROJECTS,
+                url: projectType === 'lesson' ? '/lessons' : '/scratch-projects'
+            }
     }
 });
 
@@ -431,6 +448,13 @@ const validateKidscodeLaunchResponse = response => {
 
     if (!KidscodeLaunchTypes.includes(data.launch_type)) {
         return invalidResponse('The workspace launch resolver returned an unsupported launch type.');
+    }
+
+    // return_to.type is only ever used to pick a trusted, already-safe destination (see
+    // kidscode-workspace-navigation-contract.js); a value outside the known set is rejected here so
+    // navigation never has to reason about an unrecognised destination "kind".
+    if (!KidscodeLaunchReturnDestinationTypes.includes(data.return_to.type)) {
+        return invalidResponse('The workspace launch resolver returned an unsupported return destination.');
     }
 
     const expectedProjectType = data.launch_type === KidscodeLaunchType.REVIEW ?

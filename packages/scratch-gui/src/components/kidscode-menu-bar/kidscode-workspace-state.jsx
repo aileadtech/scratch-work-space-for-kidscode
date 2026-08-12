@@ -237,15 +237,18 @@ const blockingStateMessages = {
     },
     [KidscodeWorkspaceState.PROJECT_DELETED]: {
         title: messages.projectDeletedTitle,
-        description: messages.projectDeletedDescription
+        description: messages.projectDeletedDescription,
+        action: messages.sessionExpiredAction
     },
     [KidscodeWorkspaceState.REVIEW_ACCESS_BLOCKED]: {
         title: messages.reviewAccessBlockedTitle,
-        description: messages.reviewAccessBlockedDescription
+        description: messages.reviewAccessBlockedDescription,
+        action: messages.sessionExpiredAction
     },
     [KidscodeWorkspaceState.CORRUPTED_SUBMISSION]: {
         title: messages.corruptedSubmissionTitle,
-        description: messages.corruptedSubmissionDescription
+        description: messages.corruptedSubmissionDescription,
+        action: messages.sessionExpiredAction
     }
 };
 

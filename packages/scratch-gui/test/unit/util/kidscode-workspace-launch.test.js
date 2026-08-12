@@ -150,6 +150,33 @@ describe('Kidscode workspace launch resolver', () => {
         });
     });
 
+    test.each([
+        ['demo-lesson', {type: 'lesson', url: '/lessons'}],
+        ['demo-independent', {type: 'projects', url: '/scratch-projects'}],
+        // A review launch always returns to the tutor's own review destination, never to the
+        // student-facing lesson page, even though this fixture's underlying project is a lesson.
+        ['demo-review-latest', {type: 'review', url: '/tutor/submissions'}],
+        ['demo-review-submitted', {type: 'review', url: '/tutor/submissions'}]
+    ])('resolves the expected return_to for %s', async (launchToken, expectedReturnTo) => {
+        const response = validateKidscodeLaunchResponse(await resolveDevelopmentLaunch(launchToken));
+
+        expect(response.success).toBe(true);
+        expect(response.data.return_to).toEqual(expectedReturnTo);
+    });
+
+    test('rejects a launch response with an unrecognised return_to.type', async () => {
+        const fixture = await resolveDevelopmentLaunch('demo-independent');
+        const response = validateKidscodeLaunchResponse({
+            success: true,
+            data: Object.assign({}, fixture.data, {
+                return_to: {type: 'https://evil.example.com', url: '/scratch-projects'}
+            })
+        });
+
+        expect(response.success).toBe(false);
+        expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+    });
+
     test('rejects a review launch with no exact submitted version context', async () => {
         const fixture = await resolveDevelopmentLaunch('demo-review-submitted');
         const response = validateKidscodeLaunchResponse({

@@ -27,17 +27,25 @@ import {createUnavailableKidscodeWorkspaceSubmissionReviewAdapter}
     from '../lib/kidscode-workspace-submission-review/kidscode-workspace-submission-review-contract';
 import {createKidscodeDevelopmentSubmissionReviewAdapter}
     from '../lib/kidscode-workspace-submission-review/kidscode-development-submission-review-adapter';
+import KidscodeWorkspaceNavigationHOC
+    from '../lib/kidscode-workspace-navigation/kidscode-workspace-navigation-hoc.jsx';
 
 const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
 };
 
-const onBackToKidscode = () => {};
-const onReturnToLesson = () => {};
-const onReturnToMyScratchProjects = () => {};
 const onSaveProject = () => {};
 const unavailableLaunchResolver = () =>
     Promise.reject(new Error('The Workspace launch resolver is not configured.'));
+
+// Injected/configurable recovery seam (see docs/SHARED-API-CONTRACT.md, Workspace Navigation and
+// Recovery). Production has no configured Kidscode origin yet, so it stays fail-closed (no
+// recovery destination, no absolute-URL origin allowed) rather than guessing one; Phase 8 is the
+// intended place to supply real values here. Development uses explicit, clearly local-only values.
+const kidscodeWorkspaceRecoveryUrl = process.env.NODE_ENV === 'production' ? null : '/';
+const kidscodeWorkspaceAllowedReturnOrigins = process.env.NODE_ENV === 'production' ?
+    [] :
+    ['http://localhost:8601'];
 
 const handleTelemetryModalCancel = () => {
     log('User canceled telemetry modal');
@@ -67,7 +75,8 @@ export default appTarget => {
         HashParserHOC,
         KidscodeWorkspaceProjectManagementHOC,
         KidscodeWorkspaceSubmissionReviewHOC,
-        KidscodeWorkspacePersistenceHOC
+        KidscodeWorkspacePersistenceHOC,
+        KidscodeWorkspaceNavigationHOC
     )(GUI));
 
     const launchResolver = process.env.NODE_ENV === 'production' ?
@@ -107,11 +116,6 @@ export default appTarget => {
         }
     }
 
-    if (process.env.NODE_ENV === 'production' && typeof window === 'object') {
-        // Warn before navigating away
-        window.onbeforeunload = () => true;
-    }
-
     const root = ReactDomClient.createRoot(appTarget);
 
     root.render(
@@ -119,16 +123,15 @@ export default appTarget => {
         simulateScratchDesktop ? (
             <WrappedGui
                 canEditTitle={false}
+                kidscodeWorkspaceAllowedReturnOrigins={kidscodeWorkspaceAllowedReturnOrigins}
                 kidscodeWorkspacePersistenceAdapter={persistenceAdapter}
                 kidscodeWorkspaceProjectManagementAdapter={projectManagementAdapter}
+                kidscodeWorkspaceRecoveryUrl={kidscodeWorkspaceRecoveryUrl}
                 kidscodeWorkspaceSubmissionReviewAdapter={submissionReviewAdapter}
                 launchResolver={launchResolver}
                 platform={PLATFORM.DESKTOP}
                 showTelemetryModal
                 canSave={false}
-                onBackToKidscode={onBackToKidscode}
-                onReturnToLesson={onReturnToLesson}
-                onReturnToMyScratchProjects={onReturnToMyScratchProjects}
                 onSaveProject={onSaveProject}
                 onTelemetryModalCancel={handleTelemetryModalCancel}
                 onTelemetryModalOptIn={handleTelemetryModalOptIn}
@@ -137,18 +140,17 @@ export default appTarget => {
         ) : (
             <WrappedGui
                 canEditTitle={false}
+                kidscodeWorkspaceAllowedReturnOrigins={kidscodeWorkspaceAllowedReturnOrigins}
                 kidscodeWorkspacePersistenceAdapter={persistenceAdapter}
                 kidscodeWorkspaceProjectManagementAdapter={projectManagementAdapter}
+                kidscodeWorkspaceRecoveryUrl={kidscodeWorkspaceRecoveryUrl}
                 kidscodeWorkspaceSubmissionReviewAdapter={submissionReviewAdapter}
                 launchResolver={launchResolver}
                 backpackVisible
                 showComingSoon
                 backpackHost={backpackHost}
                 canSave={false}
-                onBackToKidscode={onBackToKidscode}
                 onClickLogo={onClickLogo}
-                onReturnToLesson={onReturnToLesson}
-                onReturnToMyScratchProjects={onReturnToMyScratchProjects}
                 onSaveProject={onSaveProject}
             />
         )

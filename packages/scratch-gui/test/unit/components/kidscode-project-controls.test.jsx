@@ -19,7 +19,7 @@ jest.mock('../../../src/containers/sb3-downloader.jsx', () => function MockSB3Do
     return children('', mockDownloadProject);
 });
 
-const buildSession = status => ({
+const buildSession = (status = 'draft') => ({
     session_ref: 'SCR-SESSION-TEST',
     expires_at: '2099-08-10T15:00:00Z',
     workspace_access_token: 'DEVELOPMENT_WORKSPACE_TOKEN_TEST',
@@ -37,6 +37,18 @@ const buildSession = status => ({
     return_to: {type: 'projects', url: '/scratch-projects'}
 });
 
+const buildLessonSession = (status = 'draft') => ({
+    ...buildSession(status),
+    project: {
+        project_ref: 'SCR-PROJ-LESSON-TEST',
+        title: 'Original title',
+        project_type: 'lesson',
+        status
+    },
+    launch_type: 'existing_lesson',
+    return_to: {type: 'lesson', url: '/lessons'}
+});
+
 describe('Kidscode project controls', () => {
     let modalAppElement;
     const store = configureStore()({
@@ -47,7 +59,7 @@ describe('Kidscode project controls', () => {
 
     const defaultCallback = jest.fn(() => Promise.resolve());
     const getSaveToComputerHandler = downloadProject => downloadProject;
-    const getProjectMenu = ({session = null, ...props} = {}) => (
+    const getProjectMenu = ({session = buildSession(), ...props} = {}) => (
         <Provider store={store}>
             <MenuRefProvider>
                 <KidscodeWorkspaceSessionProvider session={session}>
@@ -61,6 +73,7 @@ describe('Kidscode project controls', () => {
                         onRenameProject={defaultCallback}
                         onReturnToLesson={defaultCallback}
                         onReturnToMyScratchProjects={defaultCallback}
+                        onReturnToTutorReview={defaultCallback}
                         {...props}
                     />
                 </KidscodeWorkspaceSessionProvider>
@@ -83,7 +96,7 @@ describe('Kidscode project controls', () => {
     });
 
     test('lists every secondary project action', () => {
-        const {getByRole, getByText} = renderWithIntl(getProjectMenu());
+        const {getByRole, getByText, queryByText} = renderWithIntl(getProjectMenu());
 
         fireEvent.click(getByRole('button', {name: 'Project menu'}));
 
@@ -91,8 +104,43 @@ describe('Kidscode project controls', () => {
         expect(getByText('Duplicate')).toBeTruthy();
         expect(getByText('Download .sb3')).toBeTruthy();
         expect(getByText('Delete draft')).toBeTruthy();
-        expect(getByText('Return to lesson')).toBeTruthy();
+        // Exactly one Return item is offered, matching the session's own return_to.type; showing
+        // both would let a student "return" to a destination their session never granted.
         expect(getByText('Return to My Scratch Projects')).toBeTruthy();
+        expect(queryByText('Return to lesson')).toBeFalsy();
+    });
+
+    test('shows Return to lesson instead when the session return_to type is lesson', () => {
+        const {getByRole, getByText, queryByText} = renderWithIntl(
+            getProjectMenu({session: buildLessonSession()})
+        );
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+
+        expect(getByText('Return to lesson')).toBeTruthy();
+        expect(queryByText('Return to My Scratch Projects')).toBeFalsy();
+    });
+
+    test('shows Return to Tutor Review instead of a student destination in review mode', () => {
+        const {getByRole, getByText, queryByText} = renderWithIntl(
+            getProjectMenu({reviewMode: true, session: buildSession('submitted')})
+        );
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+
+        expect(getByText('Return to Tutor Review')).toBeTruthy();
+        expect(queryByText('Return to My Scratch Projects')).toBeFalsy();
+        expect(queryByText('Return to lesson')).toBeFalsy();
+    });
+
+    test('offers no Return item before a session exists', () => {
+        const {getByRole, queryByText} = renderWithIntl(getProjectMenu({session: null}));
+
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+
+        expect(queryByText('Return to My Scratch Projects')).toBeFalsy();
+        expect(queryByText('Return to lesson')).toBeFalsy();
+        expect(queryByText('Return to Tutor Review')).toBeFalsy();
     });
 
     test('downloads through Scratch SB3Downloader', () => {
@@ -218,24 +266,42 @@ describe('Kidscode project controls', () => {
         await waitFor(() => expect(getByText(/Copy/)).toBeTruthy());
     });
 
-    test('invokes the return-to callback seams', () => {
-        const onReturnToLesson = jest.fn();
+    const selectProjectAction = (getByRole, getByText, label) => {
+        fireEvent.click(getByRole('button', {name: 'Project menu'}));
+        fireEvent.click(getByText(label));
+    };
+
+    test('invokes onReturnToMyScratchProjects for a projects-type session', () => {
         const onReturnToMyScratchProjects = jest.fn();
-        const {getByRole, getByText} = renderWithIntl(getProjectMenu({
-            onReturnToLesson,
-            onReturnToMyScratchProjects
-        }));
+        const {getByRole, getByText} = renderWithIntl(getProjectMenu({onReturnToMyScratchProjects}));
 
-        const selectProjectAction = label => {
-            fireEvent.click(getByRole('button', {name: 'Project menu'}));
-            fireEvent.click(getByText(label));
-        };
+        selectProjectAction(getByRole, getByText, 'Return to My Scratch Projects');
 
-        selectProjectAction('Return to lesson');
-        selectProjectAction('Return to My Scratch Projects');
+        expect(onReturnToMyScratchProjects).toHaveBeenCalledTimes(1);
+    });
+
+    test('invokes onReturnToLesson for a lesson-type session', () => {
+        const onReturnToLesson = jest.fn();
+        const {getByRole, getByText} = renderWithIntl(
+            getProjectMenu({onReturnToLesson, session: buildLessonSession()})
+        );
+
+        selectProjectAction(getByRole, getByText, 'Return to lesson');
 
         expect(onReturnToLesson).toHaveBeenCalledTimes(1);
-        expect(onReturnToMyScratchProjects).toHaveBeenCalledTimes(1);
+    });
+
+    test('invokes onReturnToTutorReview in review mode', () => {
+        const onReturnToTutorReview = jest.fn();
+        const {getByRole, getByText} = renderWithIntl(getProjectMenu({
+            onReturnToTutorReview,
+            reviewMode: true,
+            session: buildSession('submitted')
+        }));
+
+        selectProjectAction(getByRole, getByText, 'Return to Tutor Review');
+
+        expect(onReturnToTutorReview).toHaveBeenCalledTimes(1);
     });
 
     test('Rename and Delete draft are disabled for a non-draft project, but Duplicate stays available', () => {

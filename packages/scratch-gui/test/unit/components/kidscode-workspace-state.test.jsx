@@ -76,6 +76,21 @@ describe('Kidscode workspace state', () => {
             KidscodeWorkspaceState.CORRUPTED_PROJECT,
             'Project could not be opened',
             'Return to My Scratch Projects'
+        ],
+        [
+            KidscodeWorkspaceState.PROJECT_DELETED,
+            'Draft Deleted',
+            'Return to Kidscode'
+        ],
+        [
+            KidscodeWorkspaceState.REVIEW_ACCESS_BLOCKED,
+            'Submitted project unavailable',
+            'Return to Kidscode'
+        ],
+        [
+            KidscodeWorkspaceState.CORRUPTED_SUBMISSION,
+            'Submitted project could not be opened',
+            'Return to Kidscode'
         ]
     ])('renders the blocking %s state with an action seam', (workspaceState, label, actionLabel) => {
         const onAction = jest.fn();
