@@ -5,8 +5,8 @@ bottom. It is not a historical changelog; keep it describing only the current st
 
 ## Repository state
 
-- Verified main HEAD this phase branched from: `e511380d0a5a0367c68b870ee03b83bbf3639c43`
-- Current completed phases: 1–6 on main; 7 implemented on `phase7/navigation-recovery`, awaiting human review/merge
+- Current main HEAD: `9ade0e701924d4c5fe3ae862b32609832b44ddf4`
+- Current completed phases on main: 1–7
 - Next Workspace phase: Phase 8 — Production / Compliance
 
 ## Phase status
@@ -19,7 +19,7 @@ bottom. It is not a historical changelog; keep it describing only the current st
 | 4 | Save / Load / Continue / Autosave | COMPLETE |
 | 5 | Project Management | COMPLETE |
 | 6 | Submission + Tutor Review | COMPLETE |
-| 7 | Navigation + Recovery | COMPLETE (on branch, not yet merged) |
+| 7 | Navigation + Recovery | COMPLETE |
 | 8 | Production / Compliance | NOT STARTED / NEXT |
 | 9 | Final Verification | NOT STARTED |
 
