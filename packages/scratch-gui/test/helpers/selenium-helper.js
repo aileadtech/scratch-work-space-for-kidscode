@@ -4,6 +4,8 @@ jest.setTimeout(95000);
 
 import {promises as fs} from 'fs';
 import path from 'path';
+import {randomUUID} from 'crypto';
+import {fileURLToPath, pathToFileURL} from 'url';
 
 import bindAll from 'lodash.bindall';
 import webdriver from 'selenium-webdriver';
@@ -92,19 +94,63 @@ const enhanceError = async (outerError, cause, driver) => {
     return outerError;
 };
 
-// The built `index.html` entry point requires a Kidscode Workspace launch token; without one the
-// app fails closed to the "Workspace Access Blocked" state instead of rendering the editor (see
-// `KidscodeWorkspaceLaunchHOC`/`kidscode-workspace-launch-hoc.jsx`). None of the integration tests
-// supply one, so inject a stable, always-succeeding development launch fixture (`demo-independent`,
-// defined in `kidscode-workspace-launch.js`) whenever loading `index.html` with no `launch` param
-// already present. This is test-only: it never touches application/production code, and it leaves
-// other build entry points (`player.html`, `standalone.html`, etc.) untouched.
-const withDefaultKidscodeLaunchToken = fileUriString => {
+// `history.pushState`/`replaceState` throw a SecurityError in a `file://` document, which has an
+// opaque ("null") origin. KidscodeWorkspaceLaunchHOC calls `history.replaceState` once a launch
+// token resolves (to strip `?launch=` from the URL); an uncaught throw there turns a successful
+// launch into a "Connection Lost" blocking state instead. `gui.js` loads with `defer`, so an
+// inline, non-deferred script placed earlier in `<head>` is guaranteed to run first during parsing
+// and can neutralize this before the app ever calls it — patching via `executeScript` after
+// navigation cannot reliably win that race, since the app's own script may already be running (or
+// finished) by the time control returns to the test.
+const KIDSCODE_LAUNCH_BOOTSTRAP_SCRIPT = `
+    ['pushState', 'replaceState'].forEach(function (method) {
+        var original = history[method].bind(history);
+        history[method] = function () {
+            try {
+                return original.apply(history, arguments);
+            } catch (e) {
+                if (e.name !== 'SecurityError') throw e;
+            }
+        };
+    });
+`;
+
+// Write a copy of `pathname` with `KIDSCODE_LAUNCH_BOOTSTRAP_SCRIPT` injected as the first thing
+// in `<head>`. Copies (rather than mutating in place) so concurrent Jest workers loading the same
+// build never race on the same file, and so the actual build output is never modified.
+const injectKidscodeLaunchBootstrap = async pathname => {
+    const original = await fs.readFile(pathname, 'utf8');
+    const headIndex = original.indexOf('<head>');
+    if (headIndex === -1) return pathname;
+    const insertAt = headIndex + '<head>'.length;
+    const patched =
+        `${original.slice(0, insertAt)}<script>${KIDSCODE_LAUNCH_BOOTSTRAP_SCRIPT}</script>${original.slice(insertAt)}`;
+    const patchedPath = path.join(path.dirname(pathname), `index.kidscode-test-launch.${randomUUID()}.html`);
+    await fs.writeFile(patchedPath, patched, 'utf8');
+    return patchedPath;
+};
+
+// The built `index.html` entry point also requires a Kidscode Workspace launch token; without one
+// the app fails closed to the "Workspace Access Blocked" state instead of rendering the editor.
+// None of the integration tests supply one, so inject a stable, always-succeeding development
+// launch fixture (`demo-independent`, defined in `kidscode-workspace-launch.js`) whenever loading
+// `index.html` with no `launch` param already present. Both of these are test-only: neither
+// touches application/production code, and other build entry points (`player.html`,
+// `standalone.html`, etc.) are left untouched.
+const withKidscodeLaunchFixture = async fileUriString => {
     const url = new URL(fileUriString);
-    if (url.pathname.endsWith('/index.html') && !url.searchParams.has('launch')) {
-        url.searchParams.set('launch', 'demo-independent');
+    if (!url.pathname.endsWith('/index.html')) {
+        return url.href;
     }
-    return url.href;
+
+    const patchedPath = await injectKidscodeLaunchBootstrap(fileURLToPath(url));
+    const patchedUrl = pathToFileURL(patchedPath);
+    patchedUrl.search = url.search;
+    patchedUrl.hash = url.hash;
+    if (!patchedUrl.searchParams.has('launch')) {
+        patchedUrl.searchParams.set('launch', 'demo-independent');
+    }
+    return patchedUrl.href;
 };
 
 const scopes = {
@@ -316,28 +362,7 @@ class SeleniumHelper {
             const WINDOW_WIDTH = 1024;
             const WINDOW_HEIGHT = 960;
             await this.driver
-                .get(withDefaultKidscodeLaunchToken(`file://${uri}`));
-            // `file://` documents have an opaque ("null") origin, and some Chrome versions throw
-            // a SecurityError from history.pushState/replaceState even for a same-document,
-            // same-path call in that context. KidscodeWorkspaceLaunchHOC calls
-            // history.replaceState once a launch token resolves, to strip `?launch=` from the
-            // URL; an uncaught throw there turns a successful launch into a "Connection Lost"
-            // blocking state instead. Neutralize that specific failure immediately after
-            // navigation and before the app's own script can hit it, so pushState/replaceState
-            // keep working for everything except this `file://`-only quirk.
-            await this.driver
-                .executeScript(`
-                    ['pushState', 'replaceState'].forEach(function (method) {
-                        var original = history[method].bind(history);
-                        history[method] = function () {
-                            try {
-                                return original.apply(history, arguments);
-                            } catch (e) {
-                                if (e.name !== 'SecurityError') throw e;
-                            }
-                        };
-                    });
-                `);
+                .get(await withKidscodeLaunchFixture(`file://${uri}`));
             await this.driver
                 .executeScript('window.onbeforeunload = undefined;');
             await this.driver.manage().window()
