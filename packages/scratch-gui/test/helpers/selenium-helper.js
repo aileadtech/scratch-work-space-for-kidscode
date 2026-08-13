@@ -103,12 +103,23 @@ const enhanceError = async (outerError, cause, driver) => {
 // navigation cannot reliably win that race, since the app's own script may already be running (or
 // finished) by the time control returns to the test.
 const KIDSCODE_LAUNCH_BOOTSTRAP_SCRIPT = `
+    console.error('KIDSCODE_DIAG: bootstrap script running, origin=' + window.origin);
+    window.addEventListener('error', function (e) {
+        console.error('KIDSCODE_DIAG: window error: ' + e.message + ' | ' + (e.error && e.error.stack));
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+        console.error('KIDSCODE_DIAG: unhandled rejection: ' + e.reason + ' | ' + (e.reason && e.reason.stack));
+    });
     ['pushState', 'replaceState'].forEach(function (method) {
         var original = history[method].bind(history);
         history[method] = function () {
+            console.error('KIDSCODE_DIAG: ' + method + ' called with args=' + JSON.stringify(Array.prototype.slice.call(arguments)));
             try {
-                return original.apply(history, arguments);
+                var result = original.apply(history, arguments);
+                console.error('KIDSCODE_DIAG: ' + method + ' succeeded');
+                return result;
             } catch (e) {
+                console.error('KIDSCODE_DIAG: ' + method + ' threw: ' + e.name + ': ' + e.message);
                 if (e.name !== 'SecurityError') throw e;
             }
         };
