@@ -19,6 +19,18 @@ runs:
       # per-package browser list, and Firefox in scratch-render is
       # cheap unused weight rather than a correctness problem.
       run: npx playwright install --with-deps chromium firefox
+    - name: Rebuild scratch-gui build/ in development mode
+      if: ${{ inputs.package_name == 'scratch-gui' }}
+      working-directory: ./packages/scratch-gui
+      shell: bash
+      # The repo-root `npm run build` (the earlier Build job) sets NODE_ENV=production for every
+      # workspace, so dist/ and dist-standalone/ are real production bundles. That also taints
+      # build/ — the "examples and debugging tools" bundle (see webpack.config.js) that the
+      # Selenium integration tests load via file:// — which disables
+      # KidscodeWorkspaceLaunchHOC's development launch resolver and makes every launch fail
+      # closed. Rebuild just build/ here, in this job only, forced back to development mode; the
+      # artifact already uploaded for the Preview job is a separate copy and is unaffected.
+      run: NODE_ENV=development BUILD_TYPE=dev npx webpack
     - name: Test
       working-directory: ./packages/${{ inputs.package_name }}
       shell: bash
