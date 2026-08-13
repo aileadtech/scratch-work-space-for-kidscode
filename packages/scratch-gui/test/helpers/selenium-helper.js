@@ -317,6 +317,27 @@ class SeleniumHelper {
             const WINDOW_HEIGHT = 960;
             await this.driver
                 .get(withDefaultKidscodeLaunchToken(`file://${uri}`));
+            // `file://` documents have an opaque ("null") origin, and some Chrome versions throw
+            // a SecurityError from history.pushState/replaceState even for a same-document,
+            // same-path call in that context. KidscodeWorkspaceLaunchHOC calls
+            // history.replaceState once a launch token resolves, to strip `?launch=` from the
+            // URL; an uncaught throw there turns a successful launch into a "Connection Lost"
+            // blocking state instead. Neutralize that specific failure immediately after
+            // navigation and before the app's own script can hit it, so pushState/replaceState
+            // keep working for everything except this `file://`-only quirk.
+            await this.driver
+                .executeScript(`
+                    ['pushState', 'replaceState'].forEach(function (method) {
+                        var original = history[method].bind(history);
+                        history[method] = function () {
+                            try {
+                                return original.apply(history, arguments);
+                            } catch (e) {
+                                if (e.name !== 'SecurityError') throw e;
+                            }
+                        };
+                    });
+                `);
             await this.driver
                 .executeScript('window.onbeforeunload = undefined;');
             await this.driver.manage().window()
