@@ -21,6 +21,17 @@ const KidscodeLaunchType = Object.freeze({
 
 const KidscodeLaunchTypes = Object.values(KidscodeLaunchType);
 
+// Prefix for every workspace_access_token produced by the development fixtures below. The Stage 2
+// persistence adapter router (kidscode-production-persistence-adapter.js) uses this to send a
+// fixture session's requests to the development IndexedDB adapter while any other (real Laravel)
+// session goes to the real Stage 2 endpoints, mirroring how isDevelopmentLaunchFixtureToken already
+// routes launch resolution by launch token rather than by environment.
+const KIDSCODE_DEVELOPMENT_WORKSPACE_TOKEN_PREFIX = 'DEVELOPMENT_WORKSPACE_TOKEN_';
+
+const isDevelopmentWorkspaceAccessToken = workspaceAccessToken =>
+    typeof workspaceAccessToken === 'string' &&
+    workspaceAccessToken.startsWith(KIDSCODE_DEVELOPMENT_WORKSPACE_TOKEN_PREFIX);
+
 const KidscodeLaunchErrorCode = Object.freeze({
     SESSION_EXPIRED: 'LAUNCH_SESSION_EXPIRED',
     INVALID_SESSION: 'INVALID_LAUNCH_SESSION',
@@ -46,7 +57,7 @@ const createSuccessFixture = ({
     data: {
         session_ref: sessionRef,
         expires_at: '2099-08-10T15:00:00Z',
-        workspace_access_token: `DEVELOPMENT_WORKSPACE_TOKEN_${sessionRef}`,
+        workspace_access_token: `${KIDSCODE_DEVELOPMENT_WORKSPACE_TOKEN_PREFIX}${sessionRef}`,
         role,
         student: {
             display_name: 'Adewale'
@@ -567,6 +578,7 @@ export {
     KidscodeLaunchTypes,
     createDevelopmentMockLaunchResolver,
     isDevelopmentLaunchFixtureToken,
+    isDevelopmentWorkspaceAccessToken,
     readKidscodeLaunchToken,
     removeKidscodeLaunchToken,
     validateKidscodeLaunchResponse

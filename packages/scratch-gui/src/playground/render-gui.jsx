@@ -20,6 +20,10 @@ import {createUnavailableKidscodeWorkspacePersistenceAdapter}
     from '../lib/kidscode-workspace-persistence/kidscode-workspace-persistence-contract';
 import {createKidscodeDevelopmentPersistenceAdapter}
     from '../lib/kidscode-workspace-persistence/kidscode-development-persistence-adapter';
+import {
+    createKidscodeProductionPersistenceAdapter,
+    createKidscodeWorkspacePersistenceAdapter
+} from '../lib/kidscode-workspace-persistence/kidscode-production-persistence-adapter';
 import KidscodeWorkspaceProjectManagementHOC
     from '../lib/kidscode-workspace-project-management/kidscode-workspace-project-management-hoc.jsx';
 import {createUnavailableKidscodeWorkspaceProjectManagementAdapter}
@@ -93,11 +97,20 @@ export default appTarget => {
         productionResolver: productionLaunchResolver
     });
 
-    // The Laravel persistence adapter does not exist yet; production must fail closed rather than
-    // silently falling back to the development-only IndexedDB mock store.
+    // The real Stage 2 Laravel adapter is selected per-session by workspace_access_token, the same
+    // way launchResolver above selects per-session by launch token: exact development fixtures keep
+    // using the isolated local IndexedDB store, while any real (TEST/production) session reaches the
+    // real Stage 2 endpoints. Production never constructs the development adapter at all. A missing
+    // API base fails closed to the unavailable adapter rather than falling back to IndexedDB.
+    const productionPersistenceAdapter = apiBase ?
+        createKidscodeProductionPersistenceAdapter({apiBase}) :
+        createUnavailableKidscodeWorkspacePersistenceAdapter();
     const persistenceAdapter = process.env.NODE_ENV === 'production' ?
-        createUnavailableKidscodeWorkspacePersistenceAdapter() :
-        createKidscodeDevelopmentPersistenceAdapter();
+        productionPersistenceAdapter :
+        createKidscodeWorkspacePersistenceAdapter({
+            developmentAdapter: createKidscodeDevelopmentPersistenceAdapter(),
+            productionAdapter: productionPersistenceAdapter
+        });
 
     // Same production-safe selection as the persistence adapter above: the Laravel
     // project-management adapter does not exist yet, so production must fail closed.

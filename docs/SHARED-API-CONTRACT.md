@@ -173,28 +173,33 @@ The Workspace retains `version_ref` in runtime state and sends it back as `baseV
 rejected `saveProject` call (network failure, validation failure, or the future `409 PROJECT_VERSION_CONFLICT`) maps
 to the Save failed Workspace state; the Workspace does not retry automatically, only on explicit user action.
 
-### Future Laravel HTTP endpoints
+### Laravel HTTP endpoints (Stage 2, real)
 
-These are proposed, not yet implemented. The Workspace-side adapter contract above is written so a Laravel adapter
-can implement it without any change to the Workspace itself.
+Implemented and deployed at `https://testing.aileadkidscode.com/api` (TEST). The Workspace's Stage 2 adapter
+(`createKidscodeProductionPersistenceAdapter`,
+`packages/scratch-gui/src/lib/kidscode-workspace-persistence/kidscode-production-persistence-adapter.js`) calls
+these directly; nothing about the Workspace-side adapter contract above changed to accommodate them.
 
 **`GET /api/scratch/workspace/projects/{project_ref}/file`**
 
 - Purpose: load the latest authorised project `.sb3`.
-- Authentication: `workspace_access_token` (the Phase 3 credential seam; a `project_ref` alone is never treated as
-  authorisation).
-- Successful response: binary `.sb3` content plus `version_ref`/`saved_at` metadata (e.g. as response headers or a
-  wrapping envelope — left to the Laravel implementation, since the Workspace only needs bytes plus those two
-  fields).
+- Authentication: `Authorization: Bearer {workspace_access_token}` (the Phase 3 credential seam; a `project_ref`
+  alone is never treated as authorisation).
+- Successful response (HTTP 200): the raw `.sb3` bytes as the response body (not a JSON envelope). `version_ref`
+  and `saved_at` travel as response headers, `X-Scratch-Version-Ref` and `X-Scratch-Saved-At`.
+- No saved file yet (HTTP 404): the Workspace treats this the same as the development adapter's unrecorded
+  `project_ref` — starter project for a `new_lesson` launch, blank otherwise. This is not an error response.
+- Error responses use the same `{success: false, error: {code, message}}` envelope as every other endpoint on this
+  API (confirmed live, e.g. `WORKSPACE_TOKEN_INVALID` for a missing/invalid token).
 
 **`POST /api/scratch/workspace/projects/{project_ref}/save`**
 
 - Purpose: persist a new project version.
-- Authentication: `workspace_access_token`.
-- Request format: `multipart/form-data` with fields `project_file`, `base_version_ref`, `save_reason`
-  (`manual`/`autosave`).
+- Authentication: `Authorization: Bearer {workspace_access_token}`.
+- Request format: `multipart/form-data` with fields `project_file`, `base_version_ref` (omitted entirely, not sent
+  empty, on a first save with no prior version), `save_reason` (`manual`/`autosave`).
 - Successful response: the `SaveResult` JSON shape above.
-- Conflict response (future):
+- Conflict response:
 
 ```json
 {
@@ -207,6 +212,16 @@ can implement it without any change to the Workspace itself.
 ```
 
 returned as HTTP 409 when `base_version_ref` no longer matches the latest stored version.
+
+### Current implementation boundary (Phase 8 Stage 2 persistence)
+
+Like the Phase 3 launch resolver, the persistence adapter is selected per-session rather than by build mode: the
+Workspace routes by the session's own `workspace_access_token`
+(`createKidscodeWorkspacePersistenceAdapter`, same file as above). Exact development fixtures (whose token always
+has the `DEVELOPMENT_WORKSPACE_TOKEN_` prefix) keep using the isolated local IndexedDB store; any other session —
+including a real TEST-server launch opened from a local development build — reaches the real Stage 2 endpoints
+above. A production build never constructs the development adapter at all, and a missing
+`KIDSCODE_WORKSPACE_API_BASE_URL` fails closed to the unavailable adapter rather than falling back to IndexedDB.
 
 ### Development adapter
 

@@ -5,9 +5,10 @@ bottom. It is not a historical changelog; keep it describing only the current st
 
 ## Repository state
 
-- Current main HEAD: `33ac2650093b859935db8c4445046987ea1897a7`
-- Current completed phases on main: 1–7
-- Next Workspace phase: Phase 8 — Production / Compliance
+- Current main HEAD: `a075bcaaab9afd97d61e920f339555bc8831959f`
+- Current completed phases on main: 1–7, Phase 8A (Stage 1 launch)
+- Next Workspace phase: Phase 8 — Production / Compliance (Stage 2 persistence verified on
+  `phase8/stage2-real-persistence`, pending review/commit)
 
 ## Phase status
 
@@ -20,7 +21,7 @@ bottom. It is not a historical changelog; keep it describing only the current st
 | 5 | Project Management | COMPLETE |
 | 6 | Submission + Tutor Review | COMPLETE |
 | 7 | Navigation + Recovery | COMPLETE |
-| 8 | Production / Compliance | IN PROGRESS — Stage 1 Workspace integration implemented |
+| 8 | Production / Compliance | IN PROGRESS — Stage 1 launch and Stage 2 persistence integration implemented and verified |
 | 9 | Final Verification | NOT STARTED |
 
 ## What works now
@@ -37,7 +38,15 @@ base; exact development fixtures remain available, and production fails closed w
 
 **Phase 4** — real `.sb3` serialization/load through the official VM exporter/importer; manual Save; debounced
 autosave with concurrency/stale-edit protection; development-only IndexedDB persistence; close/reopen restore;
-optimistic `version_ref`; starter/blank/corrupted-project handling; production fails closed.
+optimistic `version_ref`; starter/blank/corrupted-project handling; production fails closed. Phase 8 Stage 2
+connects that seam to the real Laravel persistence endpoints (`createKidscodeProductionPersistenceAdapter`):
+`GET .../file` (raw `.sb3` body, `version_ref`/`saved_at` in `X-Scratch-Version-Ref`/`X-Scratch-Saved-At`
+response headers, 404 mapped to the existing starter/blank fallback) and `POST .../save`
+(`multipart/form-data`, `Bearer` auth, `409 PROJECT_VERSION_CONFLICT` rejected like any other save failure).
+The adapter is selected per-session by `workspace_access_token` (`createKidscodeWorkspacePersistenceAdapter`),
+mirroring the Stage 1 launch resolver's per-token routing: exact development fixtures keep using the local
+IndexedDB store, any other session (including a real TEST-server launch opened from a local dev build) reaches
+the real Stage 2 endpoints, and production never constructs the development adapter.
 
 **Phase 5** — adapter-confirmed Rename; Duplicate of current editor state as an independent draft; Delete Draft
 with permanent session blocking; shared development store and development-only title hydration; production fails
@@ -104,8 +113,12 @@ stale autosave from overwriting a successful Submit. Production selects rejectin
 falls back to development data.
 
 The production launch resolver posts only the opaque launch token to Laravel API 11 with browser credentials
-omitted. It maps the Stage 1 student response into the existing session contract; all later adapters remain
-unavailable in production.
+omitted. It maps the Stage 1 student response into the existing session contract.
+
+The production persistence adapter (`kidscode-production-persistence-adapter.js`) sends `Authorization: Bearer
+{workspace_access_token}` with browser credentials omitted on both the file GET and save POST; it never logs or
+persists the token. Phase 5/6 adapters (rename/duplicate/delete, submit/review) remain unavailable in production —
+only Stage 1 launch and Stage 2 persistence are connected to real Laravel so far.
 
 ## Current sources of truth
 
@@ -142,7 +155,10 @@ unavailable in production.
 
 - **Phase 3 / Stage 1**: Workspace integration is implemented and verified through a real local-Workspace browser
   launch against the TEST server.
-- **Phase 4**: Laravel working-project file load/save adapter.
+- **Phase 4 / Stage 2**: Workspace integration implemented against the real Laravel save/load endpoints; targeted
+  unit tests pass, and verified end-to-end with a real-session browser smoke test against the TEST server (first
+  save, save → reload the exact project, autosave, and a manufactured stale-version conflict all behaved as
+  implemented) — see `docs/PHASE-8-STAGE2-REAL-PERSISTENCE-VERIFICATION.md`.
 - **Phase 5**: Laravel rename/duplicate/delete adapter.
 - **Phase 6**: Laravel Submit endpoint/adapter; exact submitted-file load for review; Tutor review
   authorization/session; Approve; Request Changes/feedback; immutable submission/version/history persistence.
@@ -155,7 +171,9 @@ still intentionally unavailable. The request/response shapes are in `docs/SHARED
 
 ## Next Workspace phase
 
-Review and commit Phase 8A, then continue Phase 8 Production / Compliance in a separately scoped phase.
+Review and commit Phase 8 Stage 2 persistence — implementation, unit tests, and the real-session browser smoke
+test are all complete. Continue Phase 8 Production / Compliance (Stage 3/4 integration, project-management and
+submission/review adapters) in a separately scoped phase.
 
 ## Update rule
 
