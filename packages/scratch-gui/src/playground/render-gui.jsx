@@ -9,6 +9,11 @@ import log from '../lib/log.js';
 import {PLATFORM} from '../lib/platform.js';
 import KidscodeWorkspaceLaunchHOC from '../lib/kidscode-workspace-launch-hoc.jsx';
 import {createDevelopmentMockLaunchResolver} from '../lib/kidscode-workspace-launch';
+import {
+    createKidscodeLaunchResolver,
+    createKidscodeProductionLaunchResolver,
+    getKidscodeWorkspaceApiBase
+} from '../lib/kidscode-production-launch-resolver';
 import KidscodeWorkspacePersistenceHOC
     from '../lib/kidscode-workspace-persistence/kidscode-workspace-persistence-hoc.jsx';
 import {createUnavailableKidscodeWorkspacePersistenceAdapter}
@@ -79,9 +84,14 @@ export default appTarget => {
         KidscodeWorkspaceNavigationHOC
     )(GUI));
 
-    const launchResolver = process.env.NODE_ENV === 'production' ?
-        unavailableLaunchResolver :
-        createDevelopmentMockLaunchResolver();
+    const apiBase = getKidscodeWorkspaceApiBase();
+    const productionLaunchResolver = apiBase ?
+        createKidscodeProductionLaunchResolver({apiBase}) :
+        unavailableLaunchResolver;
+    const launchResolver = createKidscodeLaunchResolver({
+        developmentResolver: process.env.NODE_ENV === 'production' ? null : createDevelopmentMockLaunchResolver(),
+        productionResolver: productionLaunchResolver
+    });
 
     // The Laravel persistence adapter does not exist yet; production must fail closed rather than
     // silently falling back to the development-only IndexedDB mock store.

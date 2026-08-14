@@ -92,6 +92,21 @@ const enhanceError = async (outerError, cause, driver) => {
     return outerError;
 };
 
+// The built `index.html` entry point requires a Kidscode Workspace launch token; without one the
+// app fails closed to the "Workspace Access Blocked" state instead of rendering the editor (see
+// `KidscodeWorkspaceLaunchHOC`/`kidscode-workspace-launch-hoc.jsx`). None of the integration tests
+// supply one, so inject a stable, always-succeeding development launch fixture (`demo-independent`,
+// defined in `kidscode-workspace-launch.js`) whenever loading `index.html` with no `launch` param
+// already present. This is test-only: it never touches application/production code, and it leaves
+// other build entry points (`player.html`, `standalone.html`, etc.) untouched.
+const withDefaultKidscodeLaunchToken = fileUriString => {
+    const url = new URL(fileUriString);
+    if (url.pathname.endsWith('/index.html') && !url.searchParams.has('launch')) {
+        url.searchParams.set('launch', 'demo-independent');
+    }
+    return url.href;
+};
+
 const scopes = {
     blocklyFlyoutScope: '*[contains(concat(" ", @class, " "), " blocklyFlyout ")]',
     blocksTab: "*[@id='panel:r0:0']",
@@ -301,7 +316,7 @@ class SeleniumHelper {
             const WINDOW_WIDTH = 1024;
             const WINDOW_HEIGHT = 960;
             await this.driver
-                .get(`file://${uri}`);
+                .get(withDefaultKidscodeLaunchToken(`file://${uri}`));
             await this.driver
                 .executeScript('window.onbeforeunload = undefined;');
             await this.driver.manage().window()

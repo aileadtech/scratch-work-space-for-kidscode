@@ -102,9 +102,11 @@ does not create a validated session.
 
 ## Current implementation boundary (Phase 3 launch)
 
-Phase 3 uses a development-only resolver with the same request/result boundary. The Laravel integration will replace
-the resolver implementation, not the Workspace session or UI architecture. The production playground currently
-returns a connection failure until the Laravel resolver is configured.
+The Workspace keeps the Phase 3 session and UI architecture unchanged. Exact named development fixtures still use
+the development-only resolver; other development tokens use the local Laravel API base. Production always uses the
+Laravel resolver and fails closed when `KIDSCODE_WORKSPACE_API_BASE_URL` is missing. The Stage 1 Laravel response is
+mapped at this boundary to the existing session shape: the student-only response receives `role: "student"`, and
+Laravel's `project_details` return type maps to the existing `projects` destination while preserving its URL.
 
 ## Workspace Persistence (Phase 4)
 
