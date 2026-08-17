@@ -356,36 +356,55 @@ status. If Kidscode's product rules turn out to differ (e.g. rename should remai
 `changes_requested` projects so a student can retitle before resubmitting), that is a product decision for a future
 phase to make explicitly, not one Phase 5 has invented.
 
-### Future Laravel HTTP endpoints
+### Laravel HTTP endpoints (Stage 3, real)
 
-These are proposed, not yet implemented, following the same conventions as the Phase 4 endpoints above.
+Implemented and deployed at `https://testing.aileadkidscode.com/api` (TEST), under the same
+`/scratch/workspace/projects/...` path family as the Stage 1/2 endpoints above. The Workspace's Stage 3 adapter
+(`createKidscodeProductionProjectManagementAdapter`,
+`packages/scratch-gui/src/lib/kidscode-workspace-project-management/kidscode-production-project-management-adapter.js`)
+calls these directly. Nothing about the Workspace-side adapter contract above changed to accommodate them.
 
 **`PATCH /api/scratch/workspace/projects/{project_ref}`**
 
 - Purpose: rename the current authorised project.
-- Authentication: `workspace_access_token`.
+- Authentication: `Authorization: Bearer {workspace_access_token}`.
 - Request: `{"title": "My Walking Cat"}`.
 - Successful response: the `RenameResult` JSON shape above.
-- Backend must enforce ownership/access and `status === draft` (see the restriction rule above).
+- Backend enforces ownership/access and `status === draft` (see the restriction rule above); a rejection uses the
+  same `{success: false, error: {code, message}}` envelope as every other endpoint on this API.
 
 **`POST /api/scratch/workspace/projects/{project_ref}/duplicate`**
 
 - Purpose: create a new **independent draft** project from the current project content, regardless of the
   original's `project_type`.
-- Authentication: `workspace_access_token`.
-- Request format: `multipart/form-data` with field `project_file` (the current `.sb3`), matching the Phase 4 save
-  endpoint's encoding of project bytes. There is no `project_type` field — the backend always creates an
-  independent draft.
-- Successful response: the `DuplicateResult` JSON shape above. The backend allocates the new `project_ref` and must
-  not associate it with the original's `assignment_ref`/`course_ref`/`lesson_ref`, if the original had one.
+- Authentication: `Authorization: Bearer {workspace_access_token}`.
+- Request: no body. Unlike the Phase 4 save endpoint, the client does not upload `.sb3` bytes — the backend
+  duplicates the project's latest persisted server-side file. A student must Save first for a duplicate to include
+  unsaved editor changes; the Workspace does not do this automatically (Phase 5's Save-before-Duplicate assumption
+  from the development adapter does not apply here, since there is no server-stored file for a purely local/dev
+  session to copy from).
+- Successful response: the `DuplicateResult` JSON shape above. The backend allocates the new `project_ref` and does
+  not associate it with the original's `assignment_ref`/`course_ref`/`lesson_ref`, if the original had one. The
+  duplicate receives no Workspace session automatically, and the source token is not authorised for it, so the
+  current Workspace remains on the source project.
 
 **`DELETE /api/scratch/workspace/projects/{project_ref}`**
 
 - Purpose: delete an authorised **draft** project.
-- Authentication: `workspace_access_token`.
-- Backend must enforce ownership/access and `status === draft`; any other status returns an error rather than
-  deleting.
-- Successful response: the `DeleteResult` JSON shape above.
+- Authentication: `Authorization: Bearer {workspace_access_token}`.
+- Backend enforces ownership/access and `status === draft`; any other status returns an error rather than deleting.
+- Successful response: the `DeleteResult` JSON shape above, or an empty success body (e.g. HTTP 204) — the Workspace
+  adapter treats any non-error HTTP response as `deleted: true` either way.
+
+### Current implementation boundary (Phase 8 Stage 3 project management)
+
+Like the Phase 4/Stage 2 persistence adapter, the project-management adapter is selected per-session rather than by
+build mode: the Workspace routes by the session's own `workspace_access_token`
+(`createKidscodeWorkspaceProjectManagementAdapter`, same file as above). Exact development fixtures (whose token
+always has the `DEVELOPMENT_WORKSPACE_TOKEN_` prefix) keep using the isolated local IndexedDB store; any other
+session — including a real TEST-server launch opened from a local development build — reaches the real Stage 3
+endpoints above. A production build never constructs the development adapter at all, and a missing
+`KIDSCODE_WORKSPACE_API_BASE_URL` fails closed to the unavailable adapter rather than falling back to IndexedDB.
 
 ### Development adapter
 

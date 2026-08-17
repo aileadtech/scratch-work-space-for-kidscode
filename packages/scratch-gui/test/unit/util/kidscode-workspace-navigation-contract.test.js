@@ -2,6 +2,7 @@ import {
     KidscodeReturnDestinationType,
     createKidscodeMockNavigationTransport,
     createKidscodeWindowNavigationTransport,
+    getKidscodeWorkspaceAllowedReturnOrigins,
     validateKidscodeReturnDestination
 } from '../../../src/lib/kidscode-workspace-navigation/kidscode-workspace-navigation-contract';
 
@@ -44,6 +45,37 @@ describe('Kidscode workspace return destination validator', () => {
         expect(validateKidscodeReturnDestination(null)).toBeNull();
         expect(validateKidscodeReturnDestination({url: ''})).toBeNull();
         expect(validateKidscodeReturnDestination({})).toBeNull();
+    });
+});
+
+describe('getKidscodeWorkspaceAllowedReturnOrigins', () => {
+    test('production has no configured origins by default (fails closed)', () => {
+        expect(getKidscodeWorkspaceAllowedReturnOrigins({environment: 'production'}))
+            .toEqual([]);
+    });
+
+    test('production uses exactly the configured origins, once set', () => {
+        expect(getKidscodeWorkspaceAllowedReturnOrigins({
+            environment: 'production',
+            configuredOrigins: 'https://app.kidscode.example, https://tutor.kidscode.example'
+        })).toEqual(['https://app.kidscode.example', 'https://tutor.kidscode.example']);
+    });
+
+    test('development includes the Workspace dev-server origin even when nothing is configured', () => {
+        expect(getKidscodeWorkspaceAllowedReturnOrigins({environment: 'development'}))
+            .toEqual(['http://localhost:8601']);
+    });
+
+    test('development adds a configured real-session origin alongside the dev-server origin', () => {
+        expect(getKidscodeWorkspaceAllowedReturnOrigins({
+            environment: 'development',
+            configuredOrigins: 'https://testing.aileadkidscode.com'
+        })).toEqual(['https://testing.aileadkidscode.com', 'http://localhost:8601']);
+    });
+
+    test('blank/whitespace-only configuration is treated as unset', () => {
+        expect(getKidscodeWorkspaceAllowedReturnOrigins({environment: 'production', configuredOrigins: '   '}))
+            .toEqual([]);
     });
 });
 
