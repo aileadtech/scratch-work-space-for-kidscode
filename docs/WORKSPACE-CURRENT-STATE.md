@@ -5,10 +5,10 @@ bottom. It is not a historical changelog; keep it describing only the current st
 
 ## Repository state
 
-- Current main HEAD: `a075bcaaab9afd97d61e920f339555bc8831959f`
-- Current completed phases on main: 1–7, Phase 8A (Stage 1 launch)
-- Next Workspace phase: Phase 8 — Production / Compliance (Stage 2 persistence verified on
-  `phase8/stage2-real-persistence`, pending review/commit)
+- Current main HEAD: `a4151a6` (merged Phase 8 Stage 2 real persistence)
+- Current completed phases on main: 1–7, Phase 8A (Stage 1 launch), Phase 8 Stage 2 (Stage 2 persistence)
+- Next Workspace phase: Phase 8 — Production / Compliance (Stage 3 project management implemented on
+  `phase8/stage3-real-project-management`, pending review/commit)
 
 ## Phase status
 
@@ -21,7 +21,7 @@ bottom. It is not a historical changelog; keep it describing only the current st
 | 5 | Project Management | COMPLETE |
 | 6 | Submission + Tutor Review | COMPLETE |
 | 7 | Navigation + Recovery | COMPLETE |
-| 8 | Production / Compliance | IN PROGRESS — Stage 1 launch and Stage 2 persistence integration implemented and verified |
+| 8 | Production / Compliance | IN PROGRESS — Stage 1 launch, Stage 2 persistence, and Stage 3 project management integration implemented |
 | 9 | Final Verification | NOT STARTED |
 
 ## What works now
@@ -50,7 +50,13 @@ the real Stage 2 endpoints, and production never constructs the development adap
 
 **Phase 5** — adapter-confirmed Rename; Duplicate of current editor state as an independent draft; Delete Draft
 with permanent session blocking; shared development store and development-only title hydration; production fails
-closed.
+closed. Phase 8 Stage 3 connects that seam to the real Laravel project-management endpoints
+(`createKidscodeProductionProjectManagementAdapter`): `PATCH .../scratch/workspace/projects/{project_ref}` (rename),
+`POST .../duplicate` (server-side duplicate of the latest persisted file, no request body), and
+`DELETE .../scratch/workspace/projects/{project_ref}` (delete draft). The adapter is selected per-session by
+`workspace_access_token` (`createKidscodeWorkspaceProjectManagementAdapter`), the same routing rule Stage 2 uses:
+exact development fixtures keep using the local IndexedDB store, any other session reaches the real Stage 3
+endpoints, and production never constructs the development adapter.
 
 **Phase 6** — Submit captures the current Scratch editor state, including unsaved changes, into an immutable
 submission snapshot and safely advances the separate working project to the submitted state; visible Submitted,
@@ -117,8 +123,13 @@ omitted. It maps the Stage 1 student response into the existing session contract
 
 The production persistence adapter (`kidscode-production-persistence-adapter.js`) sends `Authorization: Bearer
 {workspace_access_token}` with browser credentials omitted on both the file GET and save POST; it never logs or
-persists the token. Phase 5/6 adapters (rename/duplicate/delete, submit/review) remain unavailable in production —
-only Stage 1 launch and Stage 2 persistence are connected to real Laravel so far.
+persists the token.
+
+The production project-management adapter (`kidscode-production-project-management-adapter.js`) sends the same
+`Authorization: Bearer {workspace_access_token}` header with browser credentials omitted on the rename PATCH,
+duplicate POST, and delete DELETE requests; it never logs or persists the token. Phase 6 adapters (submit/review)
+remain unavailable in production — Stage 1 launch, Stage 2 persistence, and Stage 3 project management are
+connected to real Laravel so far.
 
 ## Current sources of truth
 
@@ -159,21 +170,24 @@ only Stage 1 launch and Stage 2 persistence are connected to real Laravel so far
   unit tests pass, and verified end-to-end with a real-session browser smoke test against the TEST server (first
   save, save → reload the exact project, autosave, and a manufactured stale-version conflict all behaved as
   implemented) — see `docs/PHASE-8-STAGE2-REAL-PERSISTENCE-VERIFICATION.md`.
-- **Phase 5**: Laravel rename/duplicate/delete adapter.
+- **Phase 5 / Stage 3**: Workspace integration implemented against the real Laravel rename/duplicate/delete
+  endpoints; targeted unit tests pass. Real-session browser smoke test still outstanding — see
+  `docs/PHASE-8-STAGE3-REAL-PROJECT-MANAGEMENT-VERIFICATION.md`.
 - **Phase 6**: Laravel Submit endpoint/adapter; exact submitted-file load for review; Tutor review
   authorization/session; Approve; Request Changes/feedback; immutable submission/version/history persistence.
 - **Phase 7**: no new endpoint — navigation is client-side only, driven by the existing launch response. Phase 8
   must configure the real Kidscode recovery URL and allowed absolute-origin allowlist (both currently empty/`null`
   in production).
 
-Laravel Stage 1 exists and is connected at the Workspace resolver seam. Stage 2+ Workspace production adapters are
-still intentionally unavailable. The request/response shapes are in `docs/SHARED-API-CONTRACT.md`.
+Laravel Stage 1, Stage 2, and Stage 3 exist and are connected at the Workspace resolver/persistence/project-management
+seams. The Phase 6 submission/review Workspace production adapter is still intentionally unavailable. The
+request/response shapes are in `docs/SHARED-API-CONTRACT.md`.
 
 ## Next Workspace phase
 
-Review and commit Phase 8 Stage 2 persistence — implementation, unit tests, and the real-session browser smoke
-test are all complete. Continue Phase 8 Production / Compliance (Stage 3/4 integration, project-management and
-submission/review adapters) in a separately scoped phase.
+Review and commit Phase 8 Stage 3 project management — implementation and unit tests are complete; a real-session
+browser smoke test is still outstanding. Continue Phase 8 Production / Compliance (Stage 4, submission/review
+adapter) in a separately scoped phase.
 
 ## Update rule
 

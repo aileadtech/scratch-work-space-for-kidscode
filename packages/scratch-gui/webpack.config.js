@@ -78,7 +78,9 @@ const baseConfig = new ScratchWebpackConfigBuilder(
         'process.env.GTM_ENV_AUTH': `"${process.env.GTM_ENV_AUTH || ''}"`,
         'process.env.GTM_ID': process.env.GTM_ID ? `"${process.env.GTM_ID}"` : null,
         'process.env.KIDSCODE_WORKSPACE_API_BASE_URL':
-            JSON.stringify(process.env.KIDSCODE_WORKSPACE_API_BASE_URL || '')
+            JSON.stringify(process.env.KIDSCODE_WORKSPACE_API_BASE_URL || ''),
+        'process.env.KIDSCODE_WORKSPACE_ALLOWED_RETURN_ORIGINS':
+            JSON.stringify(process.env.KIDSCODE_WORKSPACE_ALLOWED_RETURN_ORIGINS || '')
     }))
     .addPlugin(new CopyWebpackPlugin({
         patterns: [

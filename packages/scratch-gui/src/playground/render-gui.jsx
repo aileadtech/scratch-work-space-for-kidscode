@@ -30,6 +30,10 @@ import {createUnavailableKidscodeWorkspaceProjectManagementAdapter}
     from '../lib/kidscode-workspace-project-management/kidscode-workspace-project-management-contract';
 import {createKidscodeDevelopmentProjectManagementAdapter}
     from '../lib/kidscode-workspace-project-management/kidscode-development-project-management-adapter';
+import {
+    createKidscodeProductionProjectManagementAdapter,
+    createKidscodeWorkspaceProjectManagementAdapter
+} from '../lib/kidscode-workspace-project-management/kidscode-production-project-management-adapter';
 import KidscodeWorkspaceSubmissionReviewHOC
     from '../lib/kidscode-workspace-submission-review/kidscode-workspace-submission-review-hoc.jsx';
 import {createUnavailableKidscodeWorkspaceSubmissionReviewAdapter}
@@ -38,6 +42,8 @@ import {createKidscodeDevelopmentSubmissionReviewAdapter}
     from '../lib/kidscode-workspace-submission-review/kidscode-development-submission-review-adapter';
 import KidscodeWorkspaceNavigationHOC
     from '../lib/kidscode-workspace-navigation/kidscode-workspace-navigation-hoc.jsx';
+import {getKidscodeWorkspaceAllowedReturnOrigins}
+    from '../lib/kidscode-workspace-navigation/kidscode-workspace-navigation-contract';
 
 const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
@@ -49,12 +55,16 @@ const unavailableLaunchResolver = () =>
 
 // Injected/configurable recovery seam (see docs/SHARED-API-CONTRACT.md, Workspace Navigation and
 // Recovery). Production has no configured Kidscode origin yet, so it stays fail-closed (no
-// recovery destination, no absolute-URL origin allowed) rather than guessing one; Phase 8 is the
-// intended place to supply real values here. Development uses explicit, clearly local-only values.
+// recovery destination) rather than guessing one; Phase 8 is the intended place to supply real
+// values here. Development uses explicit, clearly local-only values.
 const kidscodeWorkspaceRecoveryUrl = process.env.NODE_ENV === 'production' ? null : '/';
-const kidscodeWorkspaceAllowedReturnOrigins = process.env.NODE_ENV === 'production' ?
-    [] :
-    ['http://localhost:8601'];
+// The allowed-origin allowlist is now build-time configurable via
+// KIDSCODE_WORKSPACE_ALLOWED_RETURN_ORIGINS (see kidscode-workspace-navigation-contract.js) instead
+// of a fixed literal, since a real session's return_to.url points at the real Kidscode frontend's
+// own absolute origin, which differs per deployment target and is unknown at this repository's
+// build time. Still fails closed (empty allowlist) in production and in development until
+// configured, except for the Workspace's own dev-server origin.
+const kidscodeWorkspaceAllowedReturnOrigins = getKidscodeWorkspaceAllowedReturnOrigins();
 
 const handleTelemetryModalCancel = () => {
     log('User canceled telemetry modal');
@@ -112,11 +122,20 @@ export default appTarget => {
             productionAdapter: productionPersistenceAdapter
         });
 
-    // Same production-safe selection as the persistence adapter above: the Laravel
-    // project-management adapter does not exist yet, so production must fail closed.
+    // The real Stage 3 Laravel adapter is selected per-session by workspace_access_token, the same
+    // way persistenceAdapter above selects per-session for Stage 2: exact development fixtures keep
+    // using the isolated local IndexedDB store, while any real (TEST/production) session reaches the
+    // real Stage 3 endpoints. Production never constructs the development adapter at all. A missing
+    // API base fails closed to the unavailable adapter rather than falling back to IndexedDB.
+    const productionProjectManagementAdapter = apiBase ?
+        createKidscodeProductionProjectManagementAdapter({apiBase}) :
+        createUnavailableKidscodeWorkspaceProjectManagementAdapter();
     const projectManagementAdapter = process.env.NODE_ENV === 'production' ?
-        createUnavailableKidscodeWorkspaceProjectManagementAdapter() :
-        createKidscodeDevelopmentProjectManagementAdapter();
+        productionProjectManagementAdapter :
+        createKidscodeWorkspaceProjectManagementAdapter({
+            developmentAdapter: createKidscodeDevelopmentProjectManagementAdapter(),
+            productionAdapter: productionProjectManagementAdapter
+        });
 
     const submissionReviewAdapter = process.env.NODE_ENV === 'production' ?
         createUnavailableKidscodeWorkspaceSubmissionReviewAdapter() :

@@ -20,6 +20,43 @@ const KidscodeReturnDestinationTypes = Object.values(KidscodeReturnDestinationTy
 
 const ABSOLUTE_HTTP_URL_PATTERN = /^https?:\/\//i;
 
+// The Workspace's own dev-server origin, so purely local fixture-driven Return testing (an absolute
+// http://localhost:8601/... return_to.url) keeps working without any configuration.
+const KIDSCODE_DEVELOPMENT_RETURN_ORIGIN = 'http://localhost:8601';
+
+const parseKidscodeAllowedReturnOrigins = configuredOrigins => {
+    if (typeof configuredOrigins !== 'string' || configuredOrigins.trim().length === 0) return [];
+    return configuredOrigins
+        .split(',')
+        .map(origin => origin.trim())
+        .filter(origin => origin.length > 0);
+};
+
+/**
+ * Resolve the absolute-URL origins the Return Destination Validator should accept, from the
+ * environment-configured `KIDSCODE_WORKSPACE_ALLOWED_RETURN_ORIGINS` (comma-separated) build-time
+ * setting — the same "injected/configured seam" pattern as `getKidscodeWorkspaceApiBase`, rather
+ * than a fixed value baked into `render-gui.jsx`. A real Workspace session's `return_to.url` points
+ * at the real Kidscode frontend's own absolute origin (see docs/SHARED-API-CONTRACT.md), which is
+ * unknown at this repository's build time and differs per deployment target (TEST/production), so it
+ * must come from configuration, not a guessed literal.
+ * @param {object} [options] - resolver options
+ * @param {string} [options.environment] - override for `process.env.NODE_ENV`, for tests
+ * @param {string} [options.configuredOrigins] - override for
+ *   `process.env.KIDSCODE_WORKSPACE_ALLOWED_RETURN_ORIGINS`, for tests
+ * @returns {Array<string>} the allowed absolute-URL origins for this environment
+ */
+const getKidscodeWorkspaceAllowedReturnOrigins = ({
+    environment = process.env.NODE_ENV,
+    configuredOrigins = process.env.KIDSCODE_WORKSPACE_ALLOWED_RETURN_ORIGINS
+} = {}) => {
+    const configured = parseKidscodeAllowedReturnOrigins(configuredOrigins);
+    if (environment === 'production') return configured;
+    return configured.includes(KIDSCODE_DEVELOPMENT_RETURN_ORIGIN) ?
+        configured :
+        [...configured, KIDSCODE_DEVELOPMENT_RETURN_ORIGIN];
+};
+
 // A same-origin, path-only URL (e.g. "/lessons") is inherently safe: the browser resolves it
 // against the current origin, so it can never redirect off Kidscode/Scratch. A leading "//" is
 // excluded because browsers treat a protocol-relative URL as absolute (it inherits the current
@@ -102,5 +139,6 @@ export {
     KidscodeReturnDestinationTypes,
     createKidscodeMockNavigationTransport,
     createKidscodeWindowNavigationTransport,
+    getKidscodeWorkspaceAllowedReturnOrigins,
     validateKidscodeReturnDestination
 };
