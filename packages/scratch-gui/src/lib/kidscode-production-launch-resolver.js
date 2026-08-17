@@ -79,5 +79,6 @@ export {
     createKidscodeLaunchResolver,
     createKidscodeProductionLaunchResolver,
     getKidscodeWorkspaceApiBase,
-    mapLaravelLaunchResponse
+    mapLaravelLaunchResponse,
+    normalizeApiBase
 };
