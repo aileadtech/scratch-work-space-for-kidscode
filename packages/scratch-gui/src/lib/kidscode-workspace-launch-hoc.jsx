@@ -12,12 +12,31 @@ import {KidscodeWorkspaceState} from './kidscode-workspace-state';
 
 const KIDSCODE_LOADING_PROJECT_TITLE = 'Loading Project';
 const KIDSCODE_LOADING_STUDENT_NAME = 'Student';
+// The real tutor review session (see kidscode-workspace-launch.js) carries no student display name
+// at all — only an opaque student_ref — so this is a generic, honest label rather than a fabricated
+// name. `submission.project_title` is always present on a real review session.
+const KIDSCODE_REVIEW_STUDENT_NAME = 'Student';
 
 const workspaceStateForError = errorCode => {
     if (errorCode === KidscodeLaunchErrorCode.SESSION_EXPIRED) {
         return KidscodeWorkspaceState.SESSION_EXPIRED;
     }
     return KidscodeWorkspaceState.ACCESS_BLOCKED;
+};
+
+// A resolved session is either student-shaped (`session.project`) or a real tutor review session
+// (`session.submission`, no `session.project` at all) — see kidscode-workspace-launch.js. These read
+// whichever is present rather than assuming student shape, so a tutor session's render never throws.
+const kidscodeProjectTitleForSession = session => {
+    if (!session) return KIDSCODE_LOADING_PROJECT_TITLE;
+    if (session.project) return session.project.title;
+    return (session.submission && session.submission.project_title) || KIDSCODE_LOADING_PROJECT_TITLE;
+};
+
+const kidscodeStudentNameForSession = session => {
+    if (!session) return KIDSCODE_LOADING_STUDENT_NAME;
+    if (session.student) return session.student.display_name;
+    return KIDSCODE_REVIEW_STUDENT_NAME;
 };
 
 const KidscodeWorkspaceLaunchHOC = WrappedComponent => {
@@ -101,8 +120,8 @@ const KidscodeWorkspaceLaunchHOC = WrappedComponent => {
                 ...componentProps
             } = this.props;
             const {session, workspaceState} = this.state;
-            const projectTitle = session ? session.project.title : KIDSCODE_LOADING_PROJECT_TITLE;
-            const studentName = session ? session.student.display_name : KIDSCODE_LOADING_STUDENT_NAME;
+            const projectTitle = kidscodeProjectTitleForSession(session);
+            const studentName = kidscodeStudentNameForSession(session);
 
             return (
                 <KidscodeWorkspaceSessionProvider session={session}>

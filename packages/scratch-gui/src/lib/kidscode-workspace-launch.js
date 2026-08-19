@@ -418,6 +418,25 @@ const removeKidscodeLaunchToken = (locationObject, historyObject) => {
     );
 };
 
+// Discriminators for the real Stage 4 tutor read-only review launch contract (see
+// ScratchWorkspaceLaunchController::resolveReviewSession in the Laravel backend). A tutor review
+// response is structurally different from every student/dev-fixture response, not just a variant of
+// it: it carries no `project`, `student`, `return_to`, or `launch_type` at all, only `role`, `mode`,
+// `review_access_token`, `submission_ref`/`submission`, and `permissions`.
+const KidscodeSessionRole = Object.freeze({
+    STUDENT: 'student',
+    TUTOR: 'tutor'
+});
+
+const KidscodeSessionMode = Object.freeze({
+    EDIT: 'edit',
+    READ_ONLY: 'read_only'
+});
+
+const KIDSCODE_TUTOR_REVIEW_PERMISSION_KEYS = [
+    'can_edit', 'can_save', 'can_rename', 'can_duplicate', 'can_delete', 'can_submit', 'can_review'
+];
+
 const invalidResponse = message => ({
     success: false,
     error: {
@@ -428,20 +447,10 @@ const invalidResponse = message => ({
 
 const isNullableObject = value => value === null || (typeof value === 'object' && !Array.isArray(value));
 
-const validateKidscodeLaunchResponse = response => {
-    if (!response || typeof response !== 'object' || typeof response.success !== 'boolean') {
-        return invalidResponse('The workspace launch resolver returned an invalid response.');
-    }
-
-    if (!response.success) {
-        if (!response.error || typeof response.error.code !== 'string' ||
-            typeof response.error.message !== 'string') {
-            return invalidResponse('The workspace launch resolver returned an invalid error response.');
-        }
-        return response;
-    }
-
-    const {data} = response;
+// Student launches (and every existing development fixture, tutor-review ones included) always
+// carry `launch_type`; the real tutor review launch never does (see below). This is unchanged from
+// before this file gained tutor-review-shape awareness — no student-facing behaviour differs.
+const validateStudentShapedLaunchResponse = data => {
     const hasRequiredStrings = data &&
         ['session_ref', 'expires_at', 'workspace_access_token', 'launch_type', 'role'].every(key =>
             typeof data[key] === 'string' && data[key].length > 0
@@ -485,8 +494,94 @@ const validateKidscodeLaunchResponse = response => {
         return invalidResponse('The workspace review launch is missing submitted version context.');
     }
 
+    return true;
+};
+
+// The real tutor review launch contract: requires exactly what the backend actually returns, never
+// `project`/`student`/`return_to` (there is no student-facing project to edit and no return
+// destination for the Workspace to invent — see docs/SHARED-API-CONTRACT.md, Workspace Navigation).
+// A claimed role/mode is not trusted by itself: every required field must also be present, the
+// submission identifiers must agree with each other, and every permission flag must be false — a
+// review session that claims any write permission is rejected rather than trusted.
+const validateTutorReviewLaunchResponse = data => {
+    if (data.role !== KidscodeSessionRole.TUTOR || data.mode !== KidscodeSessionMode.READ_ONLY) {
+        return invalidResponse('The workspace launch resolver returned an unsupported tutor review session.');
+    }
+
+    if (!['session_ref', 'expires_at', 'review_access_token', 'submission_ref'].every(key =>
+        typeof data[key] === 'string' && data[key].length > 0
+    )) {
+        return invalidResponse('The workspace tutor review launch is missing required session data.');
+    }
+
+    const {submission} = data;
+    if (!submission || typeof submission !== 'object' ||
+        !['submission_ref', 'project_ref', 'version_ref', 'status'].every(key =>
+            typeof submission[key] === 'string' && submission[key].length > 0
+        )) {
+        return invalidResponse('The workspace tutor review launch is missing submission data.');
+    }
+    if (submission.submission_ref !== data.submission_ref) {
+        return invalidResponse('The workspace tutor review launch has mismatched submission identifiers.');
+    }
+
+    if (!data.permissions || typeof data.permissions !== 'object' ||
+        !KIDSCODE_TUTOR_REVIEW_PERMISSION_KEYS.every(key => typeof data.permissions[key] === 'boolean')) {
+        return invalidResponse('The workspace tutor review launch is missing permission flags.');
+    }
+    if (KIDSCODE_TUTOR_REVIEW_PERMISSION_KEYS.some(key => data.permissions[key])) {
+        return invalidResponse('The workspace tutor review launch must be fully read-only.');
+    }
+
+    return true;
+};
+
+const validateKidscodeLaunchResponse = response => {
+    if (!response || typeof response !== 'object' || typeof response.success !== 'boolean') {
+        return invalidResponse('The workspace launch resolver returned an invalid response.');
+    }
+
+    if (!response.success) {
+        if (!response.error || typeof response.error.code !== 'string' ||
+            typeof response.error.message !== 'string') {
+            return invalidResponse('The workspace launch resolver returned an invalid error response.');
+        }
+        return response;
+    }
+
+    const {data} = response;
+    if (!data || typeof data !== 'object') {
+        return invalidResponse('The workspace launch resolver returned incomplete session data.');
+    }
+
+    // `launch_type` discriminates the two session shapes: every student launch and every existing
+    // development fixture (student or tutor-review) carries it; the real tutor review launch never
+    // does. A response with neither shape is rejected by whichever branch it lands in.
+    const validation = typeof data.launch_type === 'string' && data.launch_type.length > 0 ?
+        validateStudentShapedLaunchResponse(data) :
+        validateTutorReviewLaunchResponse(data);
+
+    if (validation !== true) return validation;
     return response;
 };
+
+// Discriminates a session (already-validated, resolved launch data) as a read-only tutor review
+// session, covering both existing development fixtures (`launch_type: 'review'`) and the real
+// backend's `role: 'tutor', mode: 'read_only'` shape. Every HOC/component that previously checked
+// `session.launch_type === KidscodeLaunchType.REVIEW` alone should use this instead, so real tutor
+// sessions get the same read-only treatment dev fixtures already do.
+const isKidscodeReadOnlyReviewSession = session => Boolean(session) && (
+    session.launch_type === KidscodeLaunchType.REVIEW ||
+    (session.role === KidscodeSessionRole.TUTOR && session.mode === KidscodeSessionMode.READ_ONLY)
+);
+
+// Narrower than isKidscodeReadOnlyReviewSession above: true only for the real backend's tutor
+// review shape (carries review_access_token), never for a development `demo-review-*` fixture
+// (which uses the launch_type: 'review' shape and workspace_access_token instead). Approve/Request
+// Changes exist only in the development adapter/fixtures for local testing — the real backend keeps
+// them exclusively on the tutor's Sanctum-authenticated Kidscode frontend routes, so the Workspace
+// UI must not offer them at all for a real tutor session (see kidscode-project-controls.jsx).
+const isKidscodeRealTutorReviewSession = session => Boolean(session && session.review_access_token);
 
 // Applies the development project-management store's current title onto a launch fixture's
 // response, without mutating the shared fixture object (developmentFixtures is a module-level
@@ -576,9 +671,13 @@ export {
     KidscodeLaunchErrorCode,
     KidscodeLaunchType,
     KidscodeLaunchTypes,
+    KidscodeSessionMode,
+    KidscodeSessionRole,
     createDevelopmentMockLaunchResolver,
     isDevelopmentLaunchFixtureToken,
     isDevelopmentWorkspaceAccessToken,
+    isKidscodeReadOnlyReviewSession,
+    isKidscodeRealTutorReviewSession,
     readKidscodeLaunchToken,
     removeKidscodeLaunchToken,
     validateKidscodeLaunchResponse

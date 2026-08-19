@@ -261,4 +261,152 @@ describe('Kidscode workspace launch resolver', () => {
             expect(store.getProject).not.toHaveBeenCalled();
         });
     });
+
+    describe('real tutor review launch contract (role: tutor, mode: read_only)', () => {
+        // Matches ScratchWorkspaceLaunchController::resolveReviewSession exactly: no project,
+        // student, return_to, or launch_type at all.
+        const buildRealTutorLaunchData = overrides => ({
+            role: 'tutor',
+            mode: 'read_only',
+            session_ref: 'SCR-SESSION-REALTUTOR',
+            expires_at: '2099-08-10T15:00:00Z',
+            review_access_token: 'REAL_REVIEW_TOKEN_ABC123',
+            submission_ref: 'SCR-SUB-REAL001',
+            submission: {
+                submission_ref: 'SCR-SUB-REAL001',
+                project_ref: 'SCR-PROJ-REAL',
+                project_title: 'Make the Cat Walk',
+                student_ref: 'STU-REF-001',
+                version_ref: 'SCR-SUB-VER-REAL001',
+                status: 'submitted',
+                submitted_at: '2026-08-18T10:00:00Z'
+            },
+            permissions: {
+                can_edit: false,
+                can_save: false,
+                can_rename: false,
+                can_duplicate: false,
+                can_delete: false,
+                can_submit: false,
+                can_review: false
+            },
+            ...overrides
+        });
+
+        test('a valid real tutor review session validates, with no project/student/return_to required', () => {
+            const response = validateKidscodeLaunchResponse({success: true, data: buildRealTutorLaunchData()});
+
+            expect(response.success).toBe(true);
+            expect(response.data.role).toBe('tutor');
+            expect(response.data.mode).toBe('read_only');
+            expect(response.data.project).toBeUndefined();
+            expect(response.data.student).toBeUndefined();
+            expect(response.data.return_to).toBeUndefined();
+        });
+
+        test('rejects a tutor session missing submission_ref', () => {
+            const data = buildRealTutorLaunchData();
+            delete data.submission_ref;
+            const response = validateKidscodeLaunchResponse({success: true, data});
+
+            expect(response.success).toBe(false);
+            expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+        });
+
+        test('rejects a tutor session missing the review access token', () => {
+            const data = buildRealTutorLaunchData();
+            delete data.review_access_token;
+            const response = validateKidscodeLaunchResponse({success: true, data});
+
+            expect(response.success).toBe(false);
+            expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+        });
+
+        test('rejects a tutor role claiming an editable mode', () => {
+            const response = validateKidscodeLaunchResponse({
+                success: true,
+                data: buildRealTutorLaunchData({mode: 'edit'})
+            });
+
+            expect(response.success).toBe(false);
+            expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+        });
+
+        test('rejects mismatched submission identifiers within the same payload', () => {
+            const data = buildRealTutorLaunchData();
+            data.submission = Object.assign({}, data.submission, {submission_ref: 'SCR-SUB-DIFFERENT'});
+            const response = validateKidscodeLaunchResponse({success: true, data});
+
+            expect(response.success).toBe(false);
+            expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+        });
+
+        test('rejects a tutor session that claims any write permission instead of being fully read-only', () => {
+            const data = buildRealTutorLaunchData();
+            data.permissions = Object.assign({}, data.permissions, {can_edit: true});
+            const response = validateKidscodeLaunchResponse({success: true, data});
+
+            expect(response.success).toBe(false);
+            expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+        });
+
+        test('rejects a student project token presented as a review token', () => {
+            const data = buildRealTutorLaunchData();
+            delete data.review_access_token;
+            data.workspace_access_token = 'STUDENT_TOKEN_MISUSED_AS_REVIEW';
+            const response = validateKidscodeLaunchResponse({success: true, data});
+
+            expect(response.success).toBe(false);
+            expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+        });
+
+        test('rejects a review token presented as a student project token', () => {
+            const response = validateKidscodeLaunchResponse({
+                success: true,
+                data: {
+                    session_ref: 'SCR-SESSION-TEST',
+                    expires_at: '2099-08-10T15:00:00Z',
+                    review_access_token: 'REVIEW_TOKEN_MISUSED_AS_WORKSPACE',
+                    role: 'student',
+                    student: {display_name: 'Adewale'},
+                    project: {
+                        project_ref: 'SCR-PROJ-TEST',
+                        title: 'Test Project',
+                        project_type: 'independent',
+                        status: 'draft'
+                    },
+                    assignment: null,
+                    course: null,
+                    lesson: null,
+                    launch_type: 'existing_independent',
+                    return_to: {type: 'projects', url: '/scratch-projects'}
+                }
+            });
+
+            expect(response.success).toBe(false);
+            expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+        });
+
+        test('a student session missing project still rejects (student validation unchanged)', () => {
+            const response = validateKidscodeLaunchResponse({
+                success: true,
+                data: {
+                    session_ref: 'SCR-SESSION-TEST',
+                    expires_at: '2099-08-10T15:00:00Z',
+                    workspace_access_token: 'TEST_WORKSPACE_TOKEN',
+                    role: 'student',
+                    student: {display_name: 'Adewale'},
+                    project: null,
+                    assignment: null,
+                    course: null,
+                    lesson: null,
+                    launch_type: 'existing_independent',
+                    return_to: {type: 'projects', url: '/scratch-projects'}
+                }
+            });
+
+            expect(response.success).toBe(false);
+            expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+        });
+    });
 });
