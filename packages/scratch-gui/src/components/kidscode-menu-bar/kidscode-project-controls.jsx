@@ -29,6 +29,7 @@ import {
 } from '../../lib/kidscode-workspace-project-management/kidscode-workspace-project-management-contract';
 import {KidscodeReturnDestinationType}
     from '../../lib/kidscode-workspace-navigation/kidscode-workspace-navigation-contract';
+import {isKidscodeRealTutorReviewSession} from '../../lib/kidscode-workspace-launch';
 
 const messages = defineMessages({
     projectMenu: {
@@ -476,9 +477,14 @@ const KidscodeProjectMenu = ({
     const intl = useIntl();
     const session = useKidscodeWorkspaceSession();
     // No session (e.g. before launch resolves) is treated as a draft rather than locking the
-    // menu down, matching every development launch fixture's initial status.
+    // menu down, matching every development launch fixture's initial status. A tutor review session
+    // has no session.project at all (see kidscode-workspace-launch.js) — session.submission.status
+    // is read instead; this only ever matters before suppliedProjectStatus is populated, since
+    // reviewMode already locks the menu down regardless of the resulting status value.
     const projectStatus = suppliedProjectStatus ||
-        (session ? session.project.status : KidscodeProjectStatus.DRAFT);
+        (session && session.project && session.project.status) ||
+        (session && session.submission && session.submission.status) ||
+        KidscodeProjectStatus.DRAFT;
 
     const [renameOpen, setRenameOpen] = useState(false);
     const [renameError, setRenameError] = useState(false);
@@ -867,6 +873,11 @@ const KidscodeProjectActionButtons = ({
     workspaceState
 }) => {
     const intl = useIntl();
+    // Approve/Request Changes exist only for the development-fixture review shape (local testing —
+    // the development adapter implements them); the real backend keeps both exclusively on the
+    // tutor's Sanctum-authenticated Kidscode frontend routes, so a real tutor review session must
+    // never render controls for actions the Workspace has no credential to ever perform.
+    const isRealTutorReview = isKidscodeRealTutorReviewSession(useKidscodeWorkspaceSession());
     const [feedbackOpen, setFeedbackOpen] = useState(false);
     const [requestChangesOpen, setRequestChangesOpen] = useState(false);
     const [requestChangesError, setRequestChangesError] = useState(false);
@@ -979,7 +990,7 @@ const KidscodeProjectActionButtons = ({
                         </span>
                     </button>
                 )}
-                {reviewMode && projectStatus === KidscodeProjectStatus.SUBMITTED && (
+                {reviewMode && !isRealTutorReview && projectStatus === KidscodeProjectStatus.SUBMITTED && (
                     <React.Fragment>
                         <button
                             aria-label={intl.formatMessage(messages.requestChanges)}

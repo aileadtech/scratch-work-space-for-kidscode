@@ -5,10 +5,12 @@ import VM from '@scratch/scratch-vm';
 
 import {useKidscodeWorkspaceSession} from '../../contexts/kidscode-workspace-session-context.jsx';
 import {getIsShowingProject} from '../../reducers/project-state';
-import {KidscodeLaunchType} from '../kidscode-workspace-launch';
+import {isKidscodeReadOnlyReviewSession, isKidscodeRealTutorReviewSession}
+    from '../kidscode-workspace-launch';
 import {KidscodeProjectStatus}
     from '../kidscode-workspace-project-management/kidscode-workspace-project-management-contract';
 import {KidscodeWorkspaceState} from '../kidscode-workspace-state';
+import {applyKidscodeVmReadOnlyGuard} from '../kidscode-workspace-vm-read-only-guard';
 import {createUnavailableKidscodeWorkspaceSubmissionReviewAdapter}
     from './kidscode-workspace-submission-review-contract';
 
@@ -20,6 +22,17 @@ const initialActionStatus = {
     isRequestingChanges: false,
     reviewActionFailed: false
 };
+
+// Local alias: both the real tutor review shape and the pre-existing development-fixture/
+// aspirational shape (`workspace_access_token`, `review: {submission_ref, ...}`) are review
+// sessions (isKidscodeReadOnlyReviewSession is true for either), but they carry the review
+// credential and submission identity under different fields, so call sites that need those fields
+// branch on this.
+const isRealTutorReviewSession = isKidscodeRealTutorReviewSession;
+
+const projectStatusForSession = session => (session.project && session.project.status) ||
+    (session.submission && session.submission.status) ||
+    null;
 
 const KidscodeWorkspaceSubmissionReviewHOC = WrappedComponent => {
     const KidscodeWorkspaceSubmissionReviewComponent = props => {
@@ -34,7 +47,7 @@ const KidscodeWorkspaceSubmissionReviewHOC = WrappedComponent => {
         const session = useKidscodeWorkspaceSession();
         const adapter = kidscodeWorkspaceSubmissionReviewAdapter ||
             createUnavailableKidscodeWorkspaceSubmissionReviewAdapter();
-        const reviewMode = Boolean(session && session.launch_type === KidscodeLaunchType.REVIEW);
+        const reviewMode = isKidscodeReadOnlyReviewSession(session);
         const [projectStatus, setProjectStatus] = useState(null);
         const [latestWorkingVersionRef, setLatestWorkingVersionRef] = useState(kidscodeLatestVersionRef || null);
         const [reviewFeedback, setReviewFeedback] = useState(null);
@@ -50,7 +63,7 @@ const KidscodeWorkspaceSubmissionReviewHOC = WrappedComponent => {
             if (activeSessionRef.current === sessionRef) return;
             activeSessionRef.current = sessionRef;
             reviewLoadStartedRef.current = false;
-            setProjectStatus(session ? session.project.status : null);
+            setProjectStatus(session ? projectStatusForSession(session) : null);
             setLatestWorkingVersionRef(kidscodeLatestVersionRef || null);
             setReviewFeedback(session && session.review_feedback ? session.review_feedback.feedback : null);
             setActionStatus(initialActionStatus);
@@ -106,18 +119,40 @@ const KidscodeWorkspaceSubmissionReviewHOC = WrappedComponent => {
             setReviewLoadState(KidscodeWorkspaceState.LOADING_PROJECT);
             setActionStatus(previous => Object.assign({}, previous, {isLoadingReview: true}));
 
-            adapter.loadSubmission({
+            const realTutorSession = isRealTutorReviewSession(session);
+            adapter.loadSubmission(realTutorSession ? {
+                submissionRef: session.submission_ref,
+                workspaceAccessToken: session.review_access_token
+            } : {
                 submissionRef: session.review.submission_ref,
                 workspaceAccessToken: session.workspace_access_token
             }).then(result => {
-                if (result.project_ref !== session.project.project_ref ||
+                if (realTutorSession) {
+                    // The real GET .../submissions/{submission_ref}/file response carries no
+                    // project_ref at all — the review session is scoped by submission_ref, not a
+                    // mutable project_ref (kidscode-production-submission-review-adapter.js).
+                    // version_ref is also checked against the launch response's own
+                    // submission.version_ref, since that context is already trustworthy, even though
+                    // the backend does not strictly require this second check.
+                    if (result.submission_ref !== session.submission_ref ||
+                        (session.submission.version_ref && result.submitted_version_ref &&
+                            result.submitted_version_ref !== session.submission.version_ref)) {
+                        throw new Error('The loaded submission does not match the authorised review context.');
+                    }
+                } else if (result.project_ref !== session.project.project_ref ||
                     result.submission_ref !== session.review.submission_ref ||
                     result.submitted_version_ref !== session.review.submitted_version_ref) {
                     throw new Error('The loaded submission does not match the authorised review context.');
                 }
                 return vm.loadProject(result.sb3).then(() => {
-                    setProjectStatus(result.status);
-                    setReviewFeedback(result.feedback || null);
+                    // The real file-load response has no status/feedback of its own (unlike the
+                    // development adapter's response) — status was already set from the launch
+                    // response's session.submission.status by the session-change effect above, and
+                    // there is no feedback field anywhere in the real tutor review contract.
+                    if (!realTutorSession) {
+                        setProjectStatus(result.status);
+                        setReviewFeedback(result.feedback || null);
+                    }
                     setReviewLoadState(null);
                     setActionStatus(previous => Object.assign({}, previous, {isLoadingReview: false}));
                 })
@@ -133,7 +168,20 @@ const KidscodeWorkspaceSubmissionReviewHOC = WrappedComponent => {
         }, [adapter, isShowingProject, launchWorkspaceState, reviewMode, session, vm]);
 
         const reviewSubmission = useCallback((action, feedback) => {
-            if (!session || !reviewMode || !session.review) {
+            if (!session || !reviewMode) {
+                return Promise.reject(new Error('No authorised submission is available to review.'));
+            }
+            if (isRealTutorReviewSession(session)) {
+                // Approve/Request Changes stay exclusively on the tutor's Sanctum-authenticated
+                // Kidscode frontend routes; the Workspace has no credential that could ever call
+                // them for a real review session (kidscode-production-submission-review-adapter.js
+                // always rejects both). Rejecting here first avoids dereferencing session.review,
+                // which a real tutor session never has.
+                return Promise.reject(new Error(
+                    'Approve and Request Changes are not available from the Workspace.'
+                ));
+            }
+            if (!session.review) {
                 return Promise.reject(new Error('No authorised submission is available to review.'));
             }
             if (reviewActionInFlightRef.current) {
@@ -180,16 +228,32 @@ const KidscodeWorkspaceSubmissionReviewHOC = WrappedComponent => {
         const requestChanges = useCallback(feedback =>
             reviewSubmission(KidscodeProjectStatus.CHANGES_REQUESTED, feedback), [reviewSubmission]);
 
-        const effectiveProjectStatus = projectStatus || (session && session.project.status) || null;
+        const effectiveProjectStatus = projectStatus || (session && projectStatusForSession(session)) || null;
         const projectReadOnly = reviewMode || [
             KidscodeProjectStatus.SUBMITTED,
             KidscodeProjectStatus.APPROVED
         ].includes(effectiveProjectStatus) || actionStatus.isSubmitting;
         const effectiveWorkspaceState = launchWorkspaceState === null ? reviewLoadState : launchWorkspaceState;
 
+        // Genuinely blocks every non-Blockly project-content mutation path (sprite/costume/sound/
+        // backdrop add/delete/edit, sprite properties, Stage dragging — see
+        // kidscode-workspace-vm-read-only-guard.js) whenever the project is read-only, and lifts it
+        // again the moment it isn't — covering both "launched already read-only" and a live
+        // Submit/Approve transition mid-session, the same guarantee Blockly's own
+        // workspace.setIsReadOnly() wiring already provides for blocks/scripts.
+        useEffect(() => {
+            applyKidscodeVmReadOnlyGuard(vm, projectReadOnly);
+        }, [vm, projectReadOnly]);
+
         return (
             <WrappedComponent
                 {...componentProps}
+                // The vanilla File menu's "New"/"Load from your computer" both call vm.loadProject
+                // to wholesale-replace the open project, a path the VM guard above deliberately
+                // never touches (it would also block the Workspace's own legitimate project loads).
+                // Closing the menu entries themselves via the same existing canManageFiles capability
+                // flag (see components/menu-bar/menu-bar.jsx) is the only way to close that gap.
+                canManageFiles={!projectReadOnly}
                 kidscodeProjectReadOnly={projectReadOnly}
                 kidscodeProjectStatus={effectiveProjectStatus}
                 kidscodeReviewFeedback={reviewFeedback}

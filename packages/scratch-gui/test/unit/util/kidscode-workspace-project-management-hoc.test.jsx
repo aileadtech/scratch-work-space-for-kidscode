@@ -252,4 +252,46 @@ describe('KidscodeWorkspaceProjectManagementHOC', () => {
         expect(adapter.deleteDraftProject).not.toHaveBeenCalled();
         expect(vm.saveProjectSb3).not.toHaveBeenCalled();
     });
+
+    test('a real tutor review session (role: tutor, mode: read_only) also rejects every mutation, without a session.project', async () => {
+        // The real backend's tutor review launch has no project/student/return_to at all — see
+        // kidscode-workspace-launch.js's validateTutorReviewLaunchResponse. This must be blocked
+        // exactly like the development review fixture shape above, without dereferencing
+        // session.project anywhere.
+        const session = {
+            session_ref: 'SCR-SESSION-REALTUTOR',
+            expires_at: '2099-08-10T15:00:00Z',
+            role: 'tutor',
+            mode: 'read_only',
+            review_access_token: 'REAL_REVIEW_TOKEN_ABC123',
+            submission_ref: 'SCR-SUB-REAL001',
+            submission: {
+                submission_ref: 'SCR-SUB-REAL001',
+                project_ref: 'SCR-PROJ-REAL',
+                project_title: 'Make the Cat Walk',
+                version_ref: 'SCR-SUB-VER-REAL001',
+                status: 'submitted',
+                submitted_at: '2026-08-18T10:00:00Z'
+            },
+            permissions: {
+                can_edit: false,
+                can_save: false,
+                can_rename: false,
+                can_duplicate: false,
+                can_delete: false,
+                can_submit: false,
+                can_review: false
+            }
+        };
+        const adapter = createAdapter();
+        mountComponent({session, adapter});
+
+        await expect(global.__lastProbeProps.onRenameProject('Tutor edit')).rejects.toThrow('review mode');
+        await expect(global.__lastProbeProps.onDuplicateProject()).rejects.toThrow('review mode');
+        await expect(global.__lastProbeProps.onDeleteDraft()).rejects.toThrow('review mode');
+        expect(adapter.renameProject).not.toHaveBeenCalled();
+        expect(adapter.duplicateProject).not.toHaveBeenCalled();
+        expect(adapter.deleteDraftProject).not.toHaveBeenCalled();
+        expect(vm.saveProjectSb3).not.toHaveBeenCalled();
+    });
 });

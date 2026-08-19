@@ -188,6 +188,15 @@ class Blocks extends React.Component {
                 this.handleCategorySelected('faceSensing');
             });
         });
+
+        // Applied last, after every flyout/toolbox-dependent line above has already run against a
+        // normally-injected (non-readOnly) workspace: injecting with `readOnly: true` in
+        // workspaceConfig instead would skip creating Blockly's flyout entirely, and this
+        // component's own mount/update logic (line ~157's getFlyout().getWorkspace(), attachVM,
+        // etc.) unconditionally assumes one exists. workspace.setIsReadOnly() is Blockly's own
+        // supported way to toggle read-only after a workspace already has its flyout/toolbox, so it
+        // can safely run after normal setup instead of changing what gets built.
+        this.applyKidscodeReadOnly();
     }
     shouldComponentUpdate (nextProps, nextState) {
         return (
@@ -198,7 +207,8 @@ class Blocks extends React.Component {
             this.props.customProceduresVisible !== nextProps.customProceduresVisible ||
             this.props.locale !== nextProps.locale ||
             this.props.anyModalVisible !== nextProps.anyModalVisible ||
-            this.props.stageSize !== nextProps.stageSize
+            this.props.stageSize !== nextProps.stageSize ||
+            this.props.readOnly !== nextProps.readOnly
         );
     }
     componentDidUpdate (prevProps) {
@@ -212,6 +222,12 @@ class Blocks extends React.Component {
         // Do not check against prevProps.toolboxXML because that may not have been rendered.
         if (this.props.isVisible && this.props.toolboxXML !== this._renderedToolboxXML) {
             this.requestToolboxUpdate();
+        }
+
+        // Independent of the isVisible-gated block below, so a Submit transitioning the project to
+        // read-only mid-session takes effect immediately even while the Scripts tab is showing.
+        if (prevProps.readOnly !== this.props.readOnly) {
+            this.applyKidscodeReadOnly();
         }
 
         if (this.props.isVisible === prevProps.isVisible) {
@@ -259,6 +275,9 @@ class Blocks extends React.Component {
 
         // Clear the flyout blocks so that they can be recreated on mount.
         this.props.vm.clearFlyoutBlocks();
+    }
+    applyKidscodeReadOnly () {
+        this.workspace.setIsReadOnly(Boolean(this.props.readOnly));
     }
     requestToolboxUpdate () {
         clearTimeout(this.toolboxUpdateTimeout);
@@ -761,6 +780,11 @@ Blocks.propTypes = {
         comments: PropTypes.bool,
         collapse: PropTypes.bool
     }),
+    // Applied to the already-injected workspace via workspace.setIsReadOnly() — not an injection
+    // option — because Blockly injected with `readOnly: true` skips creating the flyout entirely,
+    // which this component's mount/update logic (getFlyout().getWorkspace(), attachVM, etc.)
+    // unconditionally assumes exists. See componentDidMount/componentDidUpdate.
+    readOnly: PropTypes.bool,
     stageSize: PropTypes.oneOf(Object.keys(STAGE_DISPLAY_SIZES)).isRequired,
     colorMode: PropTypes.oneOf(Object.keys(colorModeMap)),
     toolboxXML: PropTypes.string,
@@ -798,7 +822,8 @@ Blocks.defaultOptions = {
 Blocks.defaultProps = {
     isVisible: true,
     options: Blocks.defaultOptions,
-    colorMode: DEFAULT_MODE
+    colorMode: DEFAULT_MODE,
+    readOnly: false
 };
 
 const mapStateToProps = state => ({

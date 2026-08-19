@@ -464,4 +464,54 @@ describe('Kidscode project controls', () => {
         fireEvent.click(document.querySelector('button[type="submit"]'));
         await waitFor(() => expect(onRequestChanges).toHaveBeenCalledWith('Please add a loop.'));
     });
+
+    test('a real Tutor review session (role: tutor, mode: read_only) never renders Approve or Request Changes', () => {
+        // Matches the real backend's tutor review launch shape (review_access_token, no
+        // launch_type) — Approve/Request Changes only exist for the development-fixture review
+        // shape used above, which has no review_access_token.
+        const realTutorSession = {
+            session_ref: 'SCR-SESSION-REALTUTOR',
+            expires_at: '2099-08-10T15:00:00Z',
+            role: 'tutor',
+            mode: 'read_only',
+            review_access_token: 'REAL_REVIEW_TOKEN_ABC123',
+            submission_ref: 'SCR-SUB-REAL001',
+            submission: {
+                submission_ref: 'SCR-SUB-REAL001',
+                project_ref: 'SCR-PROJ-REAL',
+                version_ref: 'SCR-SUB-VER-REAL001',
+                status: 'submitted'
+            },
+            permissions: {
+                can_edit: false,
+                can_save: false,
+                can_rename: false,
+                can_duplicate: false,
+                can_delete: false,
+                can_submit: false,
+                can_review: false
+            }
+        };
+        const {getByText, queryByRole} = renderWithIntl(
+            <Provider store={store}>
+                <KidscodeWorkspaceSessionProvider session={realTutorSession}>
+                    <KidscodeProjectActionButtons
+                        projectReadOnly
+                        reviewMode
+                        projectStatus="submitted"
+                        onApproveSubmission={jest.fn()}
+                        onRequestChanges={jest.fn()}
+                        onSaveProject={jest.fn()}
+                        onSubmitProject={jest.fn()}
+                    />
+                </KidscodeWorkspaceSessionProvider>
+            </Provider>
+        );
+
+        // Still communicates view/review mode only, just without action controls the Workspace has
+        // no credential to ever perform.
+        expect(getByText('Review mode')).toBeTruthy();
+        expect(queryByRole('button', {name: 'Approve'})).toBeFalsy();
+        expect(queryByRole('button', {name: 'Request changes'})).toBeFalsy();
+    });
 });

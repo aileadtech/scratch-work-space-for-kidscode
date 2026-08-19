@@ -40,6 +40,10 @@ import {createUnavailableKidscodeWorkspaceSubmissionReviewAdapter}
     from '../lib/kidscode-workspace-submission-review/kidscode-workspace-submission-review-contract';
 import {createKidscodeDevelopmentSubmissionReviewAdapter}
     from '../lib/kidscode-workspace-submission-review/kidscode-development-submission-review-adapter';
+import {
+    createKidscodeProductionSubmissionReviewAdapter,
+    createKidscodeWorkspaceSubmissionReviewAdapter
+} from '../lib/kidscode-workspace-submission-review/kidscode-production-submission-review-adapter';
 import KidscodeWorkspaceNavigationHOC
     from '../lib/kidscode-workspace-navigation/kidscode-workspace-navigation-hoc.jsx';
 import {getKidscodeWorkspaceAllowedReturnOrigins}
@@ -137,9 +141,24 @@ export default appTarget => {
             productionAdapter: productionProjectManagementAdapter
         });
 
+    // The real Stage 4 Laravel adapter is selected per-session by access token, the same way
+    // persistenceAdapter/projectManagementAdapter above select per-session for Stage 2/3: exact
+    // development fixtures keep using the isolated local IndexedDB store, while any other (real
+    // TEST/production) session reaches the real Stage 4 endpoints. Production never constructs the
+    // development adapter at all. A missing API base fails closed to the unavailable adapter rather
+    // than falling back to IndexedDB. NOTE: only real Student Submit is reachable today — a real
+    // tutor review session cannot reach loadSubmission yet because its launch response is missing
+    // fields (project/return_to/student) the Workspace's session contract still requires; see
+    // kidscode-workspace-submission-review-hoc.jsx.
+    const productionSubmissionReviewAdapter = apiBase ?
+        createKidscodeProductionSubmissionReviewAdapter({apiBase}) :
+        createUnavailableKidscodeWorkspaceSubmissionReviewAdapter();
     const submissionReviewAdapter = process.env.NODE_ENV === 'production' ?
-        createUnavailableKidscodeWorkspaceSubmissionReviewAdapter() :
-        createKidscodeDevelopmentSubmissionReviewAdapter();
+        productionSubmissionReviewAdapter :
+        createKidscodeWorkspaceSubmissionReviewAdapter({
+            developmentAdapter: createKidscodeDevelopmentSubmissionReviewAdapter(),
+            productionAdapter: productionSubmissionReviewAdapter
+        });
 
     // TODO a hack for testing the backpack, allow backpack host to be set by url param
     const backpackHostMatches = window.location.href.match(/[?&]backpack_host=([^&]*)&?/);

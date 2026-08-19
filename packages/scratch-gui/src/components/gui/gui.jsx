@@ -554,6 +554,13 @@ const GUIComponent = props => {
                                             options={{
                                                 media: `${basePath}static/${colorModeMap[colorMode].blocksMediaFolder}/`
                                             }}
+                                            // Applied to the already-injected Blockly workspace via
+                                            // workspace.setIsReadOnly(), not an injection option — see
+                                            // containers/blocks.jsx. Genuinely disables block dragging,
+                                            // editing block inputs, and toolbox-to-workspace drops for a
+                                            // submitted/approved/tutor-review session; Green Flag and other
+                                            // VM-driven playback are separate controls and keep working.
+                                            readOnly={Boolean(kidscodeProjectReadOnly)}
                                             stageSize={stageSize}
                                             theme={theme}
                                             vm={vm}
