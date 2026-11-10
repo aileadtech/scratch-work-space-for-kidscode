@@ -9,7 +9,10 @@
  * injected/configured seam, never a value read from the page URL.
  */
 
+// EXACT is the Laravel contract's type for a concrete Kidscode page the frontend asked to return
+// to; like every other type, its url is still checked by validateKidscodeReturnDestination below.
 const KidscodeReturnDestinationType = Object.freeze({
+    EXACT: 'exact',
     LESSON: 'lesson',
     PROJECTS: 'projects',
     REVIEW: 'review',
