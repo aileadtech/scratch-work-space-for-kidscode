@@ -6,6 +6,7 @@ import {KidscodeReturnDestinationType} from './kidscode-workspace-navigation/kid
 // for the injected/configured fallback used when there is no session at all (e.g. Session Expired),
 // never a value a launch response itself should be able to send.
 const KidscodeLaunchReturnDestinationTypes = [
+    KidscodeReturnDestinationType.EXACT,
     KidscodeReturnDestinationType.LESSON,
     KidscodeReturnDestinationType.PROJECTS,
     KidscodeReturnDestinationType.REVIEW
