@@ -105,6 +105,35 @@ const buildSession = returnTo => ({
     return_to: returnTo
 });
 
+// The real Stage 4 tutor read-only review session shape (ScratchWorkspaceLaunchController::
+// resolveReviewSession) — no project/student/launch_type, and (as of the merged return_to
+// contract) an optional return_to that may be present, explicitly null, or omitted for a launch
+// from an older frontend.
+const buildRealTutorSession = returnTo => ({
+    session_ref: 'SCR-SESSION-REALTUTOR',
+    expires_at: '2099-08-10T15:00:00Z',
+    role: 'tutor',
+    mode: 'read_only',
+    review_access_token: 'REAL_REVIEW_TOKEN_ABC123',
+    submission_ref: 'SCR-SUB-REAL001',
+    submission: {
+        submission_ref: 'SCR-SUB-REAL001',
+        project_ref: 'SCR-PROJ-REAL',
+        version_ref: 'SCR-SUB-VER-REAL001',
+        status: 'submitted'
+    },
+    permissions: {
+        can_edit: false,
+        can_save: false,
+        can_rename: false,
+        can_duplicate: false,
+        can_delete: false,
+        can_submit: false,
+        can_review: false
+    },
+    ...(typeof returnTo === 'undefined' ? {} : {return_to: returnTo})
+});
+
 describe('Kidscode workspace navigation HOC', () => {
     let modalAppElement;
 
@@ -368,5 +397,155 @@ describe('Kidscode workspace navigation HOC', () => {
 
         expect(transport.calls).toEqual([]);
         expect(onWorkspaceStateAction).toHaveBeenCalledWith(KidscodeWorkspaceState.LAUNCH_CONNECTION_LOST);
+    });
+
+    describe('Back to Kidscode with the merged return_to contract (Student and real Tutor sessions)', () => {
+        test('Student: Back to Kidscode navigates to the exact session return_to.url', () => {
+            const transport = createKidscodeMockNavigationTransport();
+            renderWithIntl(
+                <NavigationHarness
+                    initialWorkspaceState={KidscodeWorkspaceState.SAVED}
+                    kidscodeWorkspaceNavigationTransport={transport}
+                    session={buildSession({type: 'projects', url: '/scratch-projects'})}
+                />
+            );
+
+            fireEvent.click(screen.getByRole('button', {name: 'Back to Kidscode'}));
+
+            expect(transport.calls).toEqual(['/scratch-projects']);
+        });
+
+        test('Tutor: a valid real-session return_to navigates Back to Kidscode to the exact submission detail page', () => {
+            const transport = createKidscodeMockNavigationTransport();
+            renderWithIntl(
+                <NavigationHarness
+                    initialWorkspaceState={KidscodeWorkspaceState.SAVED}
+                    kidscodeReviewMode
+                    kidscodeWorkspaceAllowedReturnOrigins={['https://trusted-kidscode-origin']}
+                    kidscodeWorkspaceNavigationTransport={transport}
+                    session={buildRealTutorSession({
+                        type: 'review',
+                        url: 'https://trusted-kidscode-origin/tutor/submissions/SCR-SUB-REAL001?tab=review#top'
+                    })}
+                />
+            );
+
+            fireEvent.click(screen.getByRole('button', {name: 'Back to Kidscode'}));
+
+            // Confirms the exact path/query/hash survive unchanged, not just the origin.
+            expect(transport.calls).toEqual([
+                'https://trusted-kidscode-origin/tutor/submissions/SCR-SUB-REAL001?tab=review#top'
+            ]);
+        });
+
+        test('Tutor: return_to omitted entirely fails closed — Back to Kidscode does nothing, no crash', () => {
+            const transport = createKidscodeMockNavigationTransport();
+            renderWithIntl(
+                <NavigationHarness
+                    initialWorkspaceState={KidscodeWorkspaceState.SAVED}
+                    kidscodeReviewMode
+                    kidscodeWorkspaceAllowedReturnOrigins={['https://trusted-kidscode-origin']}
+                    kidscodeWorkspaceNavigationTransport={transport}
+                    session={buildRealTutorSession()}
+                />
+            );
+
+            expect(() => fireEvent.click(screen.getByRole('button', {name: 'Back to Kidscode'}))).not.toThrow();
+
+            expect(transport.calls).toEqual([]);
+        });
+
+        test('Tutor: return_to explicitly null (legacy tutor frontend) fails closed — Back to Kidscode does nothing, no crash', () => {
+            const transport = createKidscodeMockNavigationTransport();
+            renderWithIntl(
+                <NavigationHarness
+                    initialWorkspaceState={KidscodeWorkspaceState.SAVED}
+                    kidscodeReviewMode
+                    kidscodeWorkspaceAllowedReturnOrigins={['https://trusted-kidscode-origin']}
+                    kidscodeWorkspaceNavigationTransport={transport}
+                    session={buildRealTutorSession(null)}
+                />
+            );
+
+            expect(() => fireEvent.click(screen.getByRole('button', {name: 'Back to Kidscode'}))).not.toThrow();
+
+            expect(transport.calls).toEqual([]);
+        });
+
+        test('Tutor: a foreign (non-allowlisted) return_to origin is rejected, not navigated to', () => {
+            const transport = createKidscodeMockNavigationTransport();
+            renderWithIntl(
+                <NavigationHarness
+                    initialWorkspaceState={KidscodeWorkspaceState.SAVED}
+                    kidscodeReviewMode
+                    kidscodeWorkspaceAllowedReturnOrigins={['https://trusted-kidscode-origin']}
+                    kidscodeWorkspaceNavigationTransport={transport}
+                    session={buildRealTutorSession({
+                        type: 'review',
+                        url: 'https://evil.example.com/tutor/submissions/SCR-SUB-REAL001'
+                    })}
+                />
+            );
+
+            fireEvent.click(screen.getByRole('button', {name: 'Back to Kidscode'}));
+
+            expect(transport.calls).toEqual([]);
+        });
+
+        test('Student: a foreign (non-allowlisted) return_to origin is rejected, matching Tutor behaviour', () => {
+            const transport = createKidscodeMockNavigationTransport();
+            renderWithIntl(
+                <NavigationHarness
+                    initialWorkspaceState={KidscodeWorkspaceState.SAVED}
+                    kidscodeWorkspaceAllowedReturnOrigins={['https://trusted-kidscode-origin']}
+                    kidscodeWorkspaceNavigationTransport={transport}
+                    session={buildSession({type: 'projects', url: 'https://evil.example.com/scratch-projects'})}
+                />
+            );
+
+            fireEvent.click(screen.getByRole('button', {name: 'Back to Kidscode'}));
+
+            expect(transport.calls).toEqual([]);
+        });
+
+        test('production fail-closed is preserved: an empty allowedOrigins list rejects every absolute return_to', () => {
+            const transport = createKidscodeMockNavigationTransport();
+            renderWithIntl(
+                <NavigationHarness
+                    initialWorkspaceState={KidscodeWorkspaceState.SAVED}
+                    kidscodeReviewMode
+                    kidscodeWorkspaceAllowedReturnOrigins={[]}
+                    kidscodeWorkspaceNavigationTransport={transport}
+                    session={buildRealTutorSession({
+                        type: 'review',
+                        url: 'https://trusted-kidscode-origin/tutor/submissions/SCR-SUB-REAL001'
+                    })}
+                />
+            );
+
+            fireEvent.click(screen.getByRole('button', {name: 'Back to Kidscode'}));
+
+            expect(transport.calls).toEqual([]);
+        });
+
+        test('the dev-fixture tutor review shape (launch_type: review) still resolves Back to Kidscode unchanged', () => {
+            // Regression: the pre-existing development/aspirational review shape (distinct from the
+            // real backend shape above — see kidscode-workspace-launch.js) must keep working exactly
+            // as it did before this fix.
+            const transport = createKidscodeMockNavigationTransport();
+            renderWithIntl(
+                <NavigationHarness
+                    initialWorkspaceState={KidscodeWorkspaceState.SAVED}
+                    kidscodeReviewMode
+                    kidscodeWorkspaceNavigationTransport={transport}
+                    session={buildSession({type: 'review', url: '/tutor/submissions'})}
+                />
+            );
+
+            fireEvent.click(screen.getByRole('button', {name: 'Back to Kidscode'}));
+
+            expect(transport.calls).toEqual(['/tutor/submissions']);
+            expect(screen.queryByRole('dialog')).toBeFalsy();
+        });
     });
 });

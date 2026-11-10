@@ -8,6 +8,7 @@ import {
     createDevelopmentMockLaunchResolver
 } from '../../../src/lib/kidscode-workspace-launch';
 import {KidscodeWorkspaceState} from '../../../src/lib/kidscode-workspace-state';
+import log from '../../../src/lib/log';
 
 const LaunchProbe = props => {
     const session = useKidscodeWorkspaceSession();
@@ -107,5 +108,50 @@ describe('Kidscode workspace launch session', () => {
         await waitFor(() => expect(screen.getByTestId('workspace-state').textContent)
             .toBe(KidscodeWorkspaceState.ACCESS_BLOCKED));
         expect(screen.getByTestId('launch-type').textContent).toBe('none');
+    });
+
+    describe('launch failure diagnostics', () => {
+        const SECRET_LAUNCH_TOKEN = 'SECRET_LAUNCH_TOKEN_MUST_NOT_BE_LOGGED';
+        let warnSpy;
+
+        beforeEach(() => {
+            warnSpy = jest.spyOn(log, 'warn').mockImplementation(() => {});
+        });
+
+        afterEach(() => {
+            warnSpy.mockRestore();
+        });
+
+        const loggedText = () => JSON.stringify(warnSpy.mock.calls);
+
+        test('logs the rejection code, without the launch token, when the launch is blocked', async () => {
+            const launchResolver = jest.fn().mockResolvedValue({
+                success: false,
+                error: {code: 'INVALID_LAUNCH_SESSION', message: 'This workspace launch is invalid.'}
+            });
+            renderLaunch(SECRET_LAUNCH_TOKEN, launchResolver);
+
+            await waitFor(() => expect(screen.getByTestId('workspace-state').textContent)
+                .toBe(KidscodeWorkspaceState.ACCESS_BLOCKED));
+            expect(warnSpy).toHaveBeenCalledWith(
+                'KidscodeWorkspaceLaunch.resolveLaunch: launch rejected',
+                {code: 'INVALID_LAUNCH_SESSION', message: 'This workspace launch is invalid.'}
+            );
+            expect(loggedText()).not.toContain(SECRET_LAUNCH_TOKEN);
+        });
+
+        test('logs the underlying error, without the launch token, on connection lost', async () => {
+            const launchResolver = jest.fn()
+                .mockRejectedValue(new Error('The Workspace launch resolver is not configured.'));
+            renderLaunch(SECRET_LAUNCH_TOKEN, launchResolver);
+
+            await waitFor(() => expect(screen.getByTestId('workspace-state').textContent)
+                .toBe(KidscodeWorkspaceState.LAUNCH_CONNECTION_LOST));
+            expect(warnSpy).toHaveBeenCalledWith(
+                'KidscodeWorkspaceLaunch.resolveLaunch: launch could not be resolved',
+                {name: 'Error', message: 'The Workspace launch resolver is not configured.'}
+            );
+            expect(loggedText()).not.toContain(SECRET_LAUNCH_TOKEN);
+        });
     });
 });

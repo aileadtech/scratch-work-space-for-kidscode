@@ -263,8 +263,9 @@ describe('Kidscode workspace launch resolver', () => {
     });
 
     describe('real tutor review launch contract (role: tutor, mode: read_only)', () => {
-        // Matches ScratchWorkspaceLaunchController::resolveReviewSession exactly: no project,
-        // student, return_to, or launch_type at all.
+        // Matches ScratchWorkspaceLaunchController::resolveReviewSession: no project, student, or
+        // launch_type at all. return_to is optional (a tutor session launched by an older frontend
+        // may omit it or send it as null) — see the "optional return_to" describe block below.
         const buildRealTutorLaunchData = overrides => ({
             role: 'tutor',
             mode: 'read_only',
@@ -293,7 +294,7 @@ describe('Kidscode workspace launch resolver', () => {
             ...overrides
         });
 
-        test('a valid real tutor review session validates, with no project/student/return_to required', () => {
+        test('a valid real tutor review session validates, with no project/student required and return_to absent', () => {
             const response = validateKidscodeLaunchResponse({success: true, data: buildRealTutorLaunchData()});
 
             expect(response.success).toBe(true);
@@ -407,6 +408,85 @@ describe('Kidscode workspace launch resolver', () => {
 
             expect(response.success).toBe(false);
             expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+        });
+
+        describe('optional return_to (merged backend contract: exact Tutor submission detail page)', () => {
+            test('accepts a well-formed return_to and passes it through untouched', () => {
+                const returnTo = {
+                    type: 'review',
+                    url: 'https://trusted-kidscode-origin/tutor/submissions/SCR-SUB-REAL001?tab=review#top'
+                };
+                const response = validateKidscodeLaunchResponse({
+                    success: true,
+                    data: buildRealTutorLaunchData({return_to: returnTo})
+                });
+
+                expect(response.success).toBe(true);
+                expect(response.data.return_to).toEqual(returnTo);
+            });
+
+            test('accepts the real Laravel "exact" return destination', () => {
+                const returnTo = {
+                    type: 'exact',
+                    url: 'https://test.aileadkidscode.com/tutor/submissions/SCR-SUB-REAL001'
+                };
+                const response = validateKidscodeLaunchResponse({
+                    success: true,
+                    data: buildRealTutorLaunchData({return_to: returnTo})
+                });
+
+                expect(response.success).toBe(true);
+                expect(response.data.return_to).toEqual(returnTo);
+            });
+
+            test('accepts return_to explicitly sent as null (legacy tutor frontend)', () => {
+                const response = validateKidscodeLaunchResponse({
+                    success: true,
+                    data: buildRealTutorLaunchData({return_to: null})
+                });
+
+                expect(response.success).toBe(true);
+                expect(response.data.return_to).toBeNull();
+            });
+
+            test('accepts return_to omitted entirely (legacy tutor frontend)', () => {
+                const response = validateKidscodeLaunchResponse({
+                    success: true,
+                    data: buildRealTutorLaunchData()
+                });
+
+                expect(response.success).toBe(true);
+                expect(response.data.return_to).toBeUndefined();
+            });
+
+            test.each([
+                ['missing url', {type: 'review'}],
+                ['missing type', {url: 'https://trusted-kidscode-origin/tutor/submissions/1'}],
+                ['empty url', {type: 'review', url: ''}],
+                ['non-string url', {type: 'review', url: 123}],
+                ['an array instead of an object', ['review', 'https://trusted-kidscode-origin/x']],
+                ['a bare string', 'https://trusted-kidscode-origin/x']
+            ])('rejects the whole launch when return_to is malformed (%s)', (_label, malformedReturnTo) => {
+                const response = validateKidscodeLaunchResponse({
+                    success: true,
+                    data: buildRealTutorLaunchData({return_to: malformedReturnTo})
+                });
+
+                expect(response.success).toBe(false);
+                expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+            });
+
+            test('rejects a return_to whose type is outside the known destination set', () => {
+                const response = validateKidscodeLaunchResponse({
+                    success: true,
+                    data: buildRealTutorLaunchData({
+                        return_to: {type: 'https://evil.example.com', url: '/tutor/submissions/1'}
+                    })
+                });
+
+                expect(response.success).toBe(false);
+                expect(response.error.code).toBe(KidscodeLaunchErrorCode.INVALID_RESPONSE);
+            });
         });
     });
 });

@@ -57,12 +57,18 @@ const kidscodeStudentShapedSessionPropType = PropTypes.shape({
 });
 
 // The real Stage 4 tutor read-only review session (ScratchWorkspaceLaunchController::
-// resolveReviewSession): deliberately has no project/student/return_to — see
-// kidscode-workspace-launch.js's validateTutorReviewLaunchResponse for the same required fields.
+// resolveReviewSession): deliberately has no project/student — see kidscode-workspace-launch.js's
+// validateTutorReviewLaunchResponse for the same required fields. `return_to` is optional: present
+// (the tutor's exact submission detail page) for a launch from an up-to-date frontend, absent or
+// null for one from an older frontend that doesn't send it yet.
 const kidscodeTutorReviewSessionPropType = PropTypes.shape({
     expires_at: PropTypes.string.isRequired,
     mode: PropTypes.oneOf(['read_only']).isRequired,
     permissions: PropTypes.objectOf(PropTypes.bool).isRequired,
+    return_to: PropTypes.shape({
+        type: PropTypes.string.isRequired,
+        url: PropTypes.string.isRequired
+    }),
     review_access_token: PropTypes.string.isRequired,
     role: PropTypes.oneOf(['tutor']).isRequired,
     session_ref: PropTypes.string.isRequired,

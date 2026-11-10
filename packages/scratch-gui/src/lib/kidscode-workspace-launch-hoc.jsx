@@ -9,6 +9,7 @@ import {
     validateKidscodeLaunchResponse
 } from './kidscode-workspace-launch';
 import {KidscodeWorkspaceState} from './kidscode-workspace-state';
+import log from './log';
 
 const KIDSCODE_LOADING_PROJECT_TITLE = 'Loading Project';
 const KIDSCODE_LOADING_STUDENT_NAME = 'Student';
@@ -82,6 +83,10 @@ const KidscodeWorkspaceLaunchHOC = WrappedComponent => {
                 if (!this.isMountedForLaunch) return;
 
                 if (!response.success) {
+                    // Codes and messages are fixed strings from Laravel or the validator; the
+                    // launch token and session data are never logged.
+                    log.warn('KidscodeWorkspaceLaunch.resolveLaunch: launch rejected',
+                        {code: response.error.code, message: response.error.message});
                     this.setState({
                         session: null,
                         workspaceState: workspaceStateForError(response.error.code)
@@ -94,7 +99,9 @@ const KidscodeWorkspaceLaunchHOC = WrappedComponent => {
                     session: response.data,
                     workspaceState: null
                 });
-            } catch {
+            } catch (error) {
+                log.warn('KidscodeWorkspaceLaunch.resolveLaunch: launch could not be resolved',
+                    {name: error && error.name, message: error && error.message});
                 if (!this.isMountedForLaunch) return;
                 this.setState({
                     session: null,

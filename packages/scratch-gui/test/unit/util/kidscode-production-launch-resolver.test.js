@@ -73,6 +73,29 @@ describe('Kidscode production launch resolver', () => {
         expect(response.data.workspace_access_token).toBe('RUNTIME_ONLY_TOKEN');
     });
 
+    // Laravel stores type "exact" whenever the Kidscode frontend passes a concrete page path or
+    // trusted URL as return_to at launch time (ValidatesScratchReturnTo::resolveReturnTo).
+    test('accepts the real Laravel "exact" return destination for a student launch', async () => {
+        const returnTo = {
+            type: 'exact',
+            url: 'https://test.aileadkidscode.com/student-home/scratch/projects/SCR-PROJ-REAL'
+        };
+        const resolver = createKidscodeProductionLaunchResolver({
+            apiBase: 'http://127.0.0.1:8000/api',
+            fetchImplementation: jest.fn().mockResolvedValue({
+                json: jest.fn().mockResolvedValue(createLaravelSuccessResponse({
+                    mode: 'edit',
+                    return_to: returnTo
+                }))
+            })
+        });
+
+        const response = validateKidscodeLaunchResponse(await resolver('OPAQUE_LAUNCH_TOKEN'));
+
+        expect(response.success).toBe(true);
+        expect(response.data.return_to).toEqual(returnTo);
+    });
+
     test.each([
         ['LAUNCH_SESSION_EXPIRED', 410],
         ['INVALID_LAUNCH_SESSION', 404],

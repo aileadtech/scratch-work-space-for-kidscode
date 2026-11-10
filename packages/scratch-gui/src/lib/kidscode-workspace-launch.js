@@ -6,6 +6,7 @@ import {KidscodeReturnDestinationType} from './kidscode-workspace-navigation/kid
 // for the injected/configured fallback used when there is no session at all (e.g. Session Expired),
 // never a value a launch response itself should be able to send.
 const KidscodeLaunchReturnDestinationTypes = [
+    KidscodeReturnDestinationType.EXACT,
     KidscodeReturnDestinationType.LESSON,
     KidscodeReturnDestinationType.PROJECTS,
     KidscodeReturnDestinationType.REVIEW
@@ -421,8 +422,11 @@ const removeKidscodeLaunchToken = (locationObject, historyObject) => {
 // Discriminators for the real Stage 4 tutor read-only review launch contract (see
 // ScratchWorkspaceLaunchController::resolveReviewSession in the Laravel backend). A tutor review
 // response is structurally different from every student/dev-fixture response, not just a variant of
-// it: it carries no `project`, `student`, `return_to`, or `launch_type` at all, only `role`, `mode`,
-// `review_access_token`, `submission_ref`/`submission`, and `permissions`.
+// it: it carries no `project`, `student`, or `launch_type` at all, only `role`, `mode`,
+// `review_access_token`, `submission_ref`/`submission`, `permissions`, and now an optional
+// `return_to` (the tutor's exact submission detail page — see docs/SHARED-API-CONTRACT.md, Workspace
+// Navigation). A tutor session launched by an older frontend may still send `return_to: null` or omit
+// it entirely; the Workspace must not invent a destination when that happens.
 const KidscodeSessionRole = Object.freeze({
     STUDENT: 'student',
     TUTOR: 'tutor'
@@ -498,11 +502,11 @@ const validateStudentShapedLaunchResponse = data => {
 };
 
 // The real tutor review launch contract: requires exactly what the backend actually returns, never
-// `project`/`student`/`return_to` (there is no student-facing project to edit and no return
-// destination for the Workspace to invent — see docs/SHARED-API-CONTRACT.md, Workspace Navigation).
-// A claimed role/mode is not trusted by itself: every required field must also be present, the
-// submission identifiers must agree with each other, and every permission flag must be false — a
-// review session that claims any write permission is rejected rather than trusted.
+// `project`/`student` (there is no student-facing project to edit here — see
+// docs/SHARED-API-CONTRACT.md, Workspace Navigation). A claimed role/mode is not trusted by itself:
+// every required field must also be present, the submission identifiers must agree with each other,
+// and every permission flag must be false — a review session that claims any write permission is
+// rejected rather than trusted.
 const validateTutorReviewLaunchResponse = data => {
     if (data.role !== KidscodeSessionRole.TUTOR || data.mode !== KidscodeSessionMode.READ_ONLY) {
         return invalidResponse('The workspace launch resolver returned an unsupported tutor review session.');
@@ -531,6 +535,23 @@ const validateTutorReviewLaunchResponse = data => {
     }
     if (KIDSCODE_TUTOR_REVIEW_PERMISSION_KEYS.some(key => data.permissions[key])) {
         return invalidResponse('The workspace tutor review launch must be fully read-only.');
+    }
+
+    // return_to is optional here (unlike the student contract, where it is always required): a
+    // tutor session launched by an older frontend may omit it or send it explicitly as null, and
+    // the Workspace must fail closed rather than invent a destination when that happens (handled by
+    // the navigation controller, which already treats a missing session.return_to as "no return
+    // action"). When present and non-null, it must be well-formed — a malformed value is a genuine
+    // contract violation, not something to silently drop.
+    if (data.return_to !== null && typeof data.return_to !== 'undefined') {
+        if (typeof data.return_to !== 'object' || Array.isArray(data.return_to) ||
+            typeof data.return_to.type !== 'string' || data.return_to.type.length === 0 ||
+            typeof data.return_to.url !== 'string' || data.return_to.url.length === 0) {
+            return invalidResponse('The workspace tutor review launch has a malformed return destination.');
+        }
+        if (!KidscodeLaunchReturnDestinationTypes.includes(data.return_to.type)) {
+            return invalidResponse('The workspace tutor review launch returned an unsupported return destination.');
+        }
     }
 
     return true;
